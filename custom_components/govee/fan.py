@@ -38,10 +38,12 @@ from .models import (
     WorkModeCommand,
 )
 from .models.device import (
+    CAPABILITY_WORK_MODE,
     INSTANCE_FAN_OSCILLATE,
     INSTANCE_FAN_SPEED_MODE,
     INSTANCE_FAN_TOGGLE,
     INSTANCE_REVERSE_AIRFLOW,
+    INSTANCE_WORK_MODE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -51,11 +53,11 @@ PARALLEL_UPDATES = 0
 # Preset modes: Normal uses gearMode (manual speed), Auto uses auto mode
 PRESET_MODE_NORMAL = "Normal"
 PRESET_MODE_AUTO = "Auto"
-FAN_PRESET_MODES = [PRESET_MODE_NORMAL, PRESET_MODE_AUTO]
 
 # Work mode constants
 WORK_MODE_GEAR = 1  # Manual speed control
 WORK_MODE_AUTO = 3  # Automatic mode
+MANUAL_MODE_NAMES = {"manual", "gearmode", "fanspeed"}
 
 
 async def async_setup_entry(
@@ -120,43 +122,25 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         self._attr_name = None  # Use device name
 
         # Detect speed count from device capabilities
-        gear_speeds = [
-            opt
-            for opt in device.get_fan_speed_options()
-            if opt["work_mode"] == WORK_MODE_GEAR
-        ]
-        self._fan_speeds = (
-            [opt["mode_value"] for opt in gear_speeds] if gear_speeds else [1, 2, 3]
-        )
+        self._manual_preset_name = PRESET_MODE_NORMAL
+        self._manual_work_mode = WORK_MODE_GEAR
+        self._auto_work_mode = WORK_MODE_AUTO
+        self._preset_work_modes: dict[str, int] = {}
+        self._preset_commands: dict[str, tuple[int, int]] = {}
+
+        self._init_work_mode_mappings(device)
+
+        self._fan_speed_set = set(self._fan_speeds)
         self._attr_speed_count = len(self._fan_speeds)
+        self._attr_percentage_step = 100 / len(self._fan_speeds)
 
         # Build supported features based on device capabilities
         features = FanEntityFeature.TURN_ON | FanEntityFeature.TURN_OFF
 
-        # Map preset name -> work_mode value for non-gear, non-Auto top-level
-        # work modes (e.g. H7124's Sleep/Turbo, H7126's Custom). Normal
-        # (gearMode) and Auto are always offered for backward compatibility.
-        self._preset_work_modes: dict[str, int] = {}
         if device.supports_work_mode:
             features |= FanEntityFeature.SET_SPEED
             features |= FanEntityFeature.PRESET_MODE
-            extra_presets: list[str] = []
-            for opt in device.get_fan_speed_options():
-                wm = opt.get("work_mode")
-                name = str(opt.get("name", ""))
-                if wm is None or wm in (WORK_MODE_GEAR, WORK_MODE_AUTO) or not name:
-                    continue
-                # Skip work modes whose name collides with a built-in preset
-                # (e.g. H7106 exposes its own "Auto" work mode with a value !=
-                # WORK_MODE_AUTO). Without this the built-in "Auto" is offered
-                # twice, which crashes the HomeKit bridge with a duplicate-IID
-                # error (issue #120).
-                if name.lower() in (p.lower() for p in FAN_PRESET_MODES):
-                    continue
-                if name not in self._preset_work_modes:
-                    self._preset_work_modes[name] = int(wm)
-                    extra_presets.append(name)
-            self._attr_preset_modes = FAN_PRESET_MODES + extra_presets
+            self._attr_preset_modes = list(self._preset_commands)
 
         # Reverse lookup work_mode value -> preset name (issue #114).
         self._work_mode_to_preset: dict[int, str] = {
@@ -167,6 +151,122 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             features |= FanEntityFeature.OSCILLATE
 
         self._attr_supported_features = features
+
+    def _init_work_mode_mappings(self, device: GoveeDevice) -> None:
+        """Build work mode mappings and discrete speed levels from capabilities."""
+        work_mode_options: list[dict[str, Any]] = []
+        mode_value_options: list[dict[str, Any]] = []
+        for cap in device.capabilities:
+            if cap.type != CAPABILITY_WORK_MODE or cap.instance != INSTANCE_WORK_MODE:
+                continue
+            for field in cap.parameters.get("fields", []):
+                if field.get("fieldName") == "workMode":
+                    work_mode_options = field.get("options", [])
+                elif field.get("fieldName") == "modeValue":
+                    mode_value_options = field.get("options", [])
+            break
+
+        mode_values_by_name = {
+            str(opt.get("name", "")).lower(): opt for opt in mode_value_options if opt.get("name")
+        }
+
+        # Discover manual mode and its display name from workMode options.
+        manual_name = ""
+        for opt in work_mode_options:
+            opt_name = str(opt.get("name", ""))
+            opt_value = opt.get("value")
+            if opt_value is None:
+                continue
+            if opt_name.lower() in MANUAL_MODE_NAMES:
+                self._manual_work_mode = int(opt_value)
+                manual_name = opt_name
+                break
+
+        if manual_name.lower() == "fanspeed":
+            self._manual_preset_name = manual_name
+
+        # Discover auto mode ID from workMode options.
+        for opt in work_mode_options:
+            if str(opt.get("name", "")).lower() == PRESET_MODE_AUTO.lower() and opt.get("value") is not None:
+                self._auto_work_mode = int(opt["value"])
+                break
+
+        # Build authoritative manual speeds from modeValue nested options.
+        manual_sub_options = (
+            mode_values_by_name.get(manual_name.lower(), {}).get("options", [])
+            if manual_name
+            else []
+        )
+        manual_speeds = [
+            int(opt.get("value"))
+            for opt in manual_sub_options
+            if opt.get("value") is not None
+        ]
+        if not manual_speeds:
+            fallback_speeds = [
+                opt["mode_value"]
+                for opt in device.get_fan_speed_options()
+                if opt["work_mode"] == self._manual_work_mode
+            ]
+            manual_speeds = [int(v) for v in fallback_speeds]
+        self._fan_speeds = manual_speeds if manual_speeds else [1, 2, 3]
+
+        # Build ordered preset map from workMode options with de-duplication.
+        seen: set[str] = set()
+        self._preset_work_modes[self._manual_preset_name] = self._manual_work_mode
+        self._preset_commands[self._manual_preset_name] = (
+            self._manual_work_mode,
+            self._fan_speeds[-1],
+        )
+        seen.add(self._manual_preset_name.lower())
+
+        auto_name = ""
+        auto_mode_value_opt: dict[str, Any] = {}
+        for opt in work_mode_options:
+            if str(opt.get("name", "")).lower() != PRESET_MODE_AUTO.lower():
+                continue
+            auto_name = str(opt.get("name", "")).strip() or PRESET_MODE_AUTO
+            auto_mode_value_opt = mode_values_by_name.get(auto_name.lower(), {})
+            break
+        if auto_name and auto_name.lower() not in seen:
+            auto_mode_value = self._extract_mode_value(auto_mode_value_opt)
+            self._preset_work_modes[auto_name] = self._auto_work_mode
+            self._preset_commands[auto_name] = (self._auto_work_mode, int(auto_mode_value))
+            seen.add(auto_name.lower())
+
+        for opt in work_mode_options:
+            preset_name = str(opt.get("name", "")).strip()
+            work_mode = opt.get("value")
+            if not preset_name or work_mode is None:
+                continue
+            if preset_name.lower() in MANUAL_MODE_NAMES:
+                continue
+            if preset_name.lower() == PRESET_MODE_AUTO.lower():
+                continue
+            if preset_name.lower() in seen:
+                continue
+
+            mode_value_opt = mode_values_by_name.get(preset_name.lower(), {})
+            mode_value = self._extract_mode_value(mode_value_opt)
+
+            self._preset_work_modes[preset_name] = int(work_mode)
+            self._preset_commands[preset_name] = (int(work_mode), int(mode_value))
+            seen.add(preset_name.lower())
+
+        if PRESET_MODE_AUTO.lower() not in seen:
+            self._preset_work_modes[PRESET_MODE_AUTO] = self._auto_work_mode
+            self._preset_commands[PRESET_MODE_AUTO] = (self._auto_work_mode, 0)
+
+    @staticmethod
+    def _extract_mode_value(mode_value_opt: dict[str, Any]) -> int:
+        """Extract a usable modeValue from a modeValue option definition."""
+        mode_value = mode_value_opt.get("defaultValue")
+        if mode_value is None and mode_value_opt.get("options"):
+            first = mode_value_opt["options"][0]
+            mode_value = first.get("value")
+        if mode_value is None:
+            mode_value = mode_value_opt.get("value", 0)
+        return int(mode_value)
 
     @property
     def is_on(self) -> bool | None:
@@ -185,8 +285,8 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         if state is None:
             return None
 
-        # Only return percentage when in manual gear mode
-        if state.work_mode == WORK_MODE_GEAR and state.mode_value is not None:
+        # Only return percentage when in manual speed mode
+        if state.work_mode == self._manual_work_mode and state.mode_value is not None:
             try:
                 return ordered_list_item_to_percentage(
                     self._fan_speeds, state.mode_value
@@ -210,11 +310,11 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         if state is None or state.work_mode is None:
             return None
 
-        if state.work_mode == WORK_MODE_AUTO:
-            return PRESET_MODE_AUTO
+        if state.work_mode == self._manual_work_mode:
+            return self._manual_preset_name
         if state.work_mode in self._work_mode_to_preset:
             return self._work_mode_to_preset[state.work_mode]
-        return PRESET_MODE_NORMAL
+        return self._manual_preset_name
 
     @property
     def oscillating(self) -> bool | None:
@@ -268,24 +368,32 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
 
         await self.coordinator.async_control_device(
             self._device_id,
-            WorkModeCommand(work_mode=WORK_MODE_GEAR, mode_value=mode_value),
+            WorkModeCommand(work_mode=self._manual_work_mode, mode_value=mode_value),
         )
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set the preset mode."""
-        if preset_mode == PRESET_MODE_AUTO:
-            work_mode = WORK_MODE_AUTO
-            mode_value = 0  # Not used in auto mode
-        elif preset_mode in self._preset_work_modes:
-            # Sleep / Turbo / Custom etc. — top-level work mode, no speed value
-            # (issue #114).
-            work_mode = self._preset_work_modes[preset_mode]
-            mode_value = 0
+        if preset_mode in self._preset_commands:
+            work_mode, mode_value = self._preset_commands[preset_mode]
+            if preset_mode == self._manual_preset_name:
+                state = self.device_state
+                if (
+                    state
+                    and state.work_mode == self._manual_work_mode
+                    and state.mode_value in self._fan_speed_set
+                ):
+                    mode_value = int(state.mode_value)
         else:
-            # Normal mode - use current speed or default to medium
-            work_mode = WORK_MODE_GEAR
+            # Manual mode fallback - use current speed or highest available
+            work_mode = self._manual_work_mode
             state = self.device_state
-            mode_value = state.mode_value if state and state.mode_value else 2
+            mode_value = (
+                int(state.mode_value)
+                if state
+                and state.work_mode == self._manual_work_mode
+                and state.mode_value in self._fan_speed_set
+                else self._fan_speeds[-1]
+            )
 
         _LOGGER.debug(
             "Setting preset mode: preset=%s, work_mode=%d, mode_value=%d",

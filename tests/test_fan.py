@@ -671,13 +671,7 @@ class TestGoveeCeilingFanOscillation:
 
 
 def _h7106_device():
-    """H7106-shaped fan whose workMode list has its own "Auto" (value != 3).
-
-    Reproduces issue #120: the device advertises a top-level work mode literally
-    named "Auto" with a value other than WORK_MODE_AUTO (3). Before the fix this
-    was appended as an extra preset on top of the built-in "Auto", producing a
-    duplicate that crashes the HomeKit bridge with a duplicate-IID error.
-    """
+    """H7106-shaped fan where FanSpeed is manual and Auto is not value 3."""
     from custom_components.govee.models import GoveeDevice, GoveeCapability
     from custom_components.govee.models.device import (
         CAPABILITY_ON_OFF,
@@ -692,23 +686,39 @@ def _h7106_device():
             {
                 "fieldName": "workMode",
                 "options": [
-                    {"name": "gearMode", "value": 1},
-                    {"name": "Auto", "value": 6},  # device's own "Auto", != 3
+                    {"name": "FanSpeed", "value": 1},
+                    {"name": "Auto", "value": 2},
                     {"name": "Sleep", "value": 5},
+                    {"name": "Nature", "value": 6},
+                    {"name": "Custom", "value": 7},
                 ],
             },
             {
                 "fieldName": "modeValue",
                 "options": [
                     {
-                        "name": "gearMode",
+                        "name": "FanSpeed",
                         "options": [
-                            {"name": "Low", "value": 1},
-                            {"name": "High", "value": 2},
+                            {"value": 1},
+                            {"value": 2},
+                            {"value": 3},
+                            {"value": 4},
+                            {"value": 5},
+                            {"value": 6},
+                            {"value": 7},
+                            {"value": 8},
                         ],
                     },
                     {"defaultValue": 0, "name": "Auto"},
-                    {"defaultValue": 0, "name": "Sleep"},
+                    {
+                        "name": "Sleep",
+                        "options": [{"value": 1}, {"value": 2}, {"value": 3}],
+                    },
+                    {
+                        "name": "Nature",
+                        "options": [{"value": 1}, {"value": 2}, {"value": 3}],
+                    },
+                    {"defaultValue": 0, "name": "Custom"},
                 ],
             },
         ],
@@ -732,7 +742,7 @@ def _h7106_device():
 
 
 class TestFanDuplicatePreset:
-    """Issue #120: a device "Auto"/"Normal" work mode must not duplicate built-ins."""
+    """Capability-driven fan mode handling for H7106-like devices."""
 
     @pytest.fixture
     def h7106_entity(self):
@@ -746,16 +756,115 @@ class TestFanDuplicatePreset:
 
     def test_no_duplicate_auto_preset(self, h7106_entity):
         modes = h7106_entity.preset_modes
-        # Built-in Auto/Normal present exactly once; the device's colliding
-        # "Auto" is dropped, while the unique "Sleep" still surfaces.
+        # Presets come directly from capabilities with no duplicates.
         assert modes.count(PRESET_MODE_AUTO) == 1
-        assert modes.count(PRESET_MODE_NORMAL) == 1
+        assert "FanSpeed" in modes
         assert "Sleep" in modes
-        # No name appears twice (the HomeKit IID-collision precondition).
+        assert "Nature" in modes
+        assert "Custom" in modes
         assert len(modes) == len(set(modes))
 
-    def test_collided_auto_not_in_work_mode_map(self, h7106_entity):
-        # The dropped "Auto" must not leak into the preset->work_mode map, so
-        # selecting "Auto" maps to the built-in WORK_MODE_AUTO, not value 6.
-        assert "Auto" not in h7106_entity._preset_work_modes
+    def test_preset_modes_map_to_discovered_work_modes(self, h7106_entity):
+        assert h7106_entity._auto_work_mode == 2
+        assert h7106_entity._preset_work_modes.get("Auto") == 2
+        assert h7106_entity._manual_work_mode == 1
+        assert h7106_entity._manual_preset_name == "FanSpeed"
         assert h7106_entity._preset_work_modes.get("Sleep") == 5
+
+    def test_speed_count_and_percentage_step_from_fanspeed_modevalue(self, h7106_entity):
+        assert h7106_entity.speed_count == 8
+        assert h7106_entity.percentage_step == pytest.approx(12.5)
+
+    @pytest.mark.asyncio
+    async def test_set_preset_auto_uses_discovered_work_mode(self, h7106_entity):
+        await h7106_entity.async_set_preset_mode("Auto")
+        cmd = h7106_entity.coordinator.async_control_device.call_args[0][1]
+        assert isinstance(cmd, WorkModeCommand)
+        assert cmd.work_mode == 2
+
+
+def _h7107_device():
+    """H7107-shaped fan where manual FanSpeed work mode is not value 1."""
+    from custom_components.govee.models import GoveeDevice, GoveeCapability
+    from custom_components.govee.models.device import (
+        CAPABILITY_ON_OFF,
+        CAPABILITY_WORK_MODE,
+        INSTANCE_POWER,
+        INSTANCE_WORK_MODE,
+    )
+
+    workmode = {
+        "dataType": "STRUCT",
+        "fields": [
+            {
+                "fieldName": "workMode",
+                "options": [
+                    {"name": "Auto", "value": 2},
+                    {"name": "Sleep", "value": 3},
+                    {"name": "FanSpeed", "value": 4},
+                    {"name": "Nature", "value": 5},
+                    {"name": "Custom", "value": 6},
+                ],
+            },
+            {
+                "fieldName": "modeValue",
+                "options": [
+                    {
+                        "name": "FanSpeed",
+                        "options": [{"value": i} for i in range(1, 13)],
+                    },
+                    {"defaultValue": 0, "name": "Auto"},
+                    {"defaultValue": 0, "name": "Sleep"},
+                    {"defaultValue": 0, "name": "Nature"},
+                    {"defaultValue": 0, "name": "Custom"},
+                ],
+            },
+        ],
+    }
+    return GoveeDevice(
+        device_id="AA:BB:CC:DD:EE:FF:71:07",
+        sku="H7107",
+        name="Bedroom Tower Fan",
+        device_type="devices.types.fan",
+        capabilities=(
+            GoveeCapability(type=CAPABILITY_ON_OFF, instance=INSTANCE_POWER, parameters={}),
+            GoveeCapability(
+                type=CAPABILITY_WORK_MODE,
+                instance=INSTANCE_WORK_MODE,
+                parameters=workmode,
+            ),
+        ),
+    )
+
+
+class TestFanSpeedManualModeDiscovery:
+    @pytest.fixture
+    def h7107_entity(self):
+        device = _h7107_device()
+        state = MagicMock()
+        state.work_mode = 4
+        state.mode_value = 6
+        coordinator = MagicMock()
+        coordinator.devices = {device.device_id: device}
+        coordinator.get_state = MagicMock(return_value=state)
+        coordinator.async_control_device = AsyncMock(return_value=True)
+        return GoveeFanEntity(coordinator, device)
+
+    def test_speed_count_and_presets_use_capabilities(self, h7107_entity):
+        assert h7107_entity.speed_count == 12
+        assert h7107_entity.percentage_step == pytest.approx(100 / 12)
+        assert h7107_entity.preset_modes == [
+            "FanSpeed",
+            "Auto",
+            "Sleep",
+            "Nature",
+            "Custom",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_set_percentage_uses_detected_manual_work_mode(self, h7107_entity):
+        await h7107_entity.async_set_percentage(100)
+        cmd = h7107_entity.coordinator.async_control_device.call_args[0][1]
+        assert isinstance(cmd, WorkModeCommand)
+        assert cmd.work_mode == 4
+        assert cmd.mode_value == 12
