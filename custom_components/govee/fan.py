@@ -279,7 +279,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         """Return the current speed as a percentage.
 
         Maps mode_value to percentage using the device's speed list.
-        Only applies when in the device's manual speed work mode.
+        Only applies when the current work_mode matches the discovered manual mode.
         """
         state = self.device_state
         if state is None:
@@ -300,11 +300,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
     def preset_mode(self) -> str | None:
         """Return the current preset mode.
 
-        Maps work_mode to preset:
-        - 1 (gearMode) -> Normal
-        - 3 (Auto) -> Auto
-        - other top-level work modes (Sleep/Turbo/Custom) -> their own preset
-          (issue #114)
+        Maps the current work_mode to the capability-discovered preset names.
         """
         state = self.device_state
         if state is None or state.work_mode is None:
@@ -377,11 +373,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             work_mode, mode_value = self._preset_commands[preset_mode]
             if preset_mode == self._manual_preset_name:
                 state = self.device_state
-                if (
-                    state
-                    and state.work_mode == self._manual_work_mode
-                    and state.mode_value in self._fan_speed_set
-                ):
+                if state and state.mode_value in self._fan_speed_set:
                     mode_value = int(state.mode_value)
         else:
             # Manual mode fallback - use current speed or highest available
@@ -390,7 +382,6 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             mode_value = (
                 int(state.mode_value)
                 if state
-                and state.work_mode == self._manual_work_mode
                 and state.mode_value in self._fan_speed_set
                 else self._fan_speeds[-1]
             )
