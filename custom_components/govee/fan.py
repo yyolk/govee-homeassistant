@@ -214,6 +214,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         # Build ordered preset map from workMode options with de-duplication.
         seen: set[str] = set()
         self._preset_work_modes[self._manual_preset_name] = self._manual_work_mode
+        # Default to the lowest manual speed for safer transitions from non-manual modes.
         self._preset_commands[self._manual_preset_name] = (
             self._manual_work_mode,
             self._fan_speeds[0],
@@ -381,7 +382,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                 ):
                     mode_value = int(state.mode_value)
         else:
-            # Manual mode fallback - use current speed or highest available
+            # Manual mode fallback - use current speed or lowest available
             work_mode = self._manual_work_mode
             state = self.device_state
             mode_value = (
@@ -389,7 +390,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                 if state
                 and state.mode_value is not None
                 and state.mode_value in self._fan_speed_set
-                else self._fan_speeds[-1]
+                else self._fan_speeds[0]
             )
 
         _LOGGER.debug(
