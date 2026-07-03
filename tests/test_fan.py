@@ -827,7 +827,11 @@ def _h7107_device():
         name="Bedroom Tower Fan",
         device_type="devices.types.fan",
         capabilities=(
-            GoveeCapability(type=CAPABILITY_ON_OFF, instance=INSTANCE_POWER, parameters={}),
+            GoveeCapability(
+                type=CAPABILITY_ON_OFF,
+                instance=INSTANCE_POWER,
+                parameters={},
+            ),
             GoveeCapability(
                 type=CAPABILITY_WORK_MODE,
                 instance=INSTANCE_WORK_MODE,

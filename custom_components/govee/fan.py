@@ -187,7 +187,10 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
 
         # Discover auto mode ID from workMode options.
         for opt in work_mode_options:
-            if str(opt.get("name", "")).lower() == PRESET_MODE_AUTO.lower() and opt.get("value") is not None:
+            if (
+                str(opt.get("name", "")).lower() == PRESET_MODE_AUTO.lower()
+                and opt.get("value") is not None
+            ):
                 self._auto_work_mode = int(opt["value"])
                 break
 
@@ -210,14 +213,15 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             ]
             manual_speeds = [int(v) for v in fallback_speeds]
         self._fan_speeds = manual_speeds if manual_speeds else [1, 2, 3]
+        default_manual_mode_value = self._fan_speeds[(len(self._fan_speeds) - 1) // 2]
 
         # Build ordered preset map from workMode options with de-duplication.
         seen: set[str] = set()
         self._preset_work_modes[self._manual_preset_name] = self._manual_work_mode
-        # Default to the lowest manual speed for safer transitions from non-manual modes.
+        # Default to a typical manual speed for safer transitions from non-manual modes.
         self._preset_commands[self._manual_preset_name] = (
             self._manual_work_mode,
-            self._fan_speeds[0],
+            default_manual_mode_value,
         )
         seen.add(self._manual_preset_name.lower())
 
@@ -382,7 +386,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                 ):
                     mode_value = int(state.mode_value)
         else:
-            # Manual mode fallback - use current speed or lowest available
+            # Manual mode fallback - use current speed or typical available speed
             work_mode = self._manual_work_mode
             state = self.device_state
             mode_value = (
@@ -390,7 +394,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                 if state
                 and state.mode_value is not None
                 and state.mode_value in self._fan_speed_set
-                else self._fan_speeds[0]
+                else self._fan_speeds[(len(self._fan_speeds) - 1) // 2]
             )
 
         _LOGGER.debug(
