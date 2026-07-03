@@ -300,7 +300,8 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
     def preset_mode(self) -> str | None:
         """Return the current preset mode.
 
-        Maps the current work_mode to the capability-discovered preset names.
+        Maps the current work_mode to capability-discovered preset IDs/names.
+        Manual/Auto work_mode values are device-specific and not hardcoded.
         """
         state = self.device_state
         if state is None or state.work_mode is None:
