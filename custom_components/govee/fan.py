@@ -216,7 +216,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         self._preset_work_modes[self._manual_preset_name] = self._manual_work_mode
         self._preset_commands[self._manual_preset_name] = (
             self._manual_work_mode,
-            self._fan_speeds[-1],
+            self._fan_speeds[0],
         )
         seen.add(self._manual_preset_name.lower())
 
