@@ -373,7 +373,11 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             work_mode, mode_value = self._preset_commands[preset_mode]
             if preset_mode == self._manual_preset_name:
                 state = self.device_state
-                if state and state.mode_value in self._fan_speed_set:
+                if (
+                    state
+                    and state.mode_value is not None
+                    and state.mode_value in self._fan_speed_set
+                ):
                     mode_value = int(state.mode_value)
         else:
             # Manual mode fallback - use current speed or highest available
@@ -382,6 +386,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             mode_value = (
                 int(state.mode_value)
                 if state
+                and state.mode_value is not None
                 and state.mode_value in self._fan_speed_set
                 else self._fan_speeds[-1]
             )
