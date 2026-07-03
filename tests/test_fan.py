@@ -889,7 +889,7 @@ class TestFanSpeedManualModeDiscovery:
         assert cmd.mode_value == 6
 
     @pytest.mark.asyncio
-    async def test_set_manual_preset_defaults_to_lowest_speed_when_mode_value_invalid(
+    async def test_set_manual_preset_defaults_to_typical_speed_when_mode_value_invalid(
         self, h7107_entity
     ):
         state = h7107_entity.coordinator.get_state.return_value
@@ -901,4 +901,4 @@ class TestFanSpeedManualModeDiscovery:
         cmd = h7107_entity.coordinator.async_control_device.call_args[0][1]
         assert isinstance(cmd, WorkModeCommand)
         assert cmd.work_mode == 4
-        assert cmd.mode_value == 1
+        assert cmd.mode_value == 6
