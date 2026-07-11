@@ -214,6 +214,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             manual_speeds = [int(v) for v in fallback_speeds]
         self._fan_speeds = manual_speeds if manual_speeds else [1, 2, 3]
         default_manual_mode_value = self._fan_speeds[(len(self._fan_speeds) - 1) // 2]
+        min_manual_mode_value = self._fan_speeds[0]
 
         # Build ordered preset map from workMode options with de-duplication.
         seen: set[str] = set()
@@ -235,6 +236,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             break
         if auto_name and auto_name.lower() not in seen:
             auto_mode_value = self._extract_mode_value(auto_mode_value_opt)
+            auto_mode_value = max(auto_mode_value, min_manual_mode_value)
             self._preset_work_modes[auto_name] = self._auto_work_mode
             self._preset_commands[auto_name] = (self._auto_work_mode, int(auto_mode_value))
             seen.add(auto_name.lower())
@@ -253,6 +255,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
 
             mode_value_opt = mode_values_by_name.get(preset_name.lower(), {})
             mode_value = self._extract_mode_value(mode_value_opt)
+            mode_value = max(mode_value, min_manual_mode_value)
 
             self._preset_work_modes[preset_name] = int(work_mode)
             self._preset_commands[preset_name] = (int(work_mode), int(mode_value))
@@ -260,7 +263,10 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
 
         if PRESET_MODE_AUTO.lower() not in seen:
             self._preset_work_modes[PRESET_MODE_AUTO] = self._auto_work_mode
-            self._preset_commands[PRESET_MODE_AUTO] = (self._auto_work_mode, 0)
+            self._preset_commands[PRESET_MODE_AUTO] = (
+                self._auto_work_mode,
+                min_manual_mode_value,
+            )
 
     @staticmethod
     def _extract_mode_value(mode_value_opt: dict[str, Any]) -> int:
