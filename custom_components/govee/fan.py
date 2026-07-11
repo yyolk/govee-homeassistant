@@ -293,6 +293,18 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             mode_value = mode_value_opt.get("value", 0)
         return int(mode_value)
 
+    def _manual_mode_value_from_state(self) -> int | None:
+        """Return valid manual modeValue from state when available."""
+        state = self.device_state
+        if (
+            state
+            and state.work_mode == self._manual_work_mode
+            and state.mode_value is not None
+            and state.mode_value in self._fan_speed_set
+        ):
+            return int(state.mode_value)
+        return None
+
     @property
     def is_on(self) -> bool | None:
         """Return True if fan is on."""
@@ -407,26 +419,16 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set the preset mode."""
-        state = self.device_state
-        if (
-            state
-            and state.work_mode == self._manual_work_mode
-            and state.mode_value is not None
-            and state.mode_value in self._fan_speed_set
-        ):
-            self._last_manual_mode_value = int(state.mode_value)
+        manual_mode_value = self._manual_mode_value_from_state()
+        if manual_mode_value is not None:
+            self._last_manual_mode_value = manual_mode_value
 
         if preset_mode in self._preset_commands:
             work_mode, mode_value = self._preset_commands[preset_mode]
             if preset_mode == self._manual_preset_name:
                 mode_value = self._last_manual_mode_value
-                if (
-                    state
-                    and state.work_mode == self._manual_work_mode
-                    and state.mode_value is not None
-                    and state.mode_value in self._fan_speed_set
-                ):
-                    mode_value = int(state.mode_value)
+                if manual_mode_value is not None:
+                    mode_value = manual_mode_value
                 self._last_manual_mode_value = mode_value
             else:
                 mode_value = max(mode_value, self._min_manual_mode_value)
@@ -434,13 +436,8 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             # Manual mode fallback - use current speed or typical available speed
             work_mode = self._manual_work_mode
             mode_value = self._last_manual_mode_value
-            if (
-                state
-                and state.work_mode == self._manual_work_mode
-                and state.mode_value is not None
-                and state.mode_value in self._fan_speed_set
-            ):
-                mode_value = int(state.mode_value)
+            if manual_mode_value is not None:
+                mode_value = manual_mode_value
             self._last_manual_mode_value = mode_value
 
         _LOGGER.debug(
