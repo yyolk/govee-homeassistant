@@ -874,6 +874,19 @@ class TestFanSpeedManualModeDiscovery:
         assert cmd.mode_value == 12
 
     @pytest.mark.asyncio
+    async def test_set_percentage_keeps_current_non_manual_mode(self, h7107_entity):
+        state = h7107_entity.coordinator.get_state.return_value
+        state.work_mode = 2
+        state.mode_value = 0
+
+        await h7107_entity.async_set_percentage(100)
+
+        cmd = h7107_entity.coordinator.async_control_device.call_args[0][1]
+        assert isinstance(cmd, WorkModeCommand)
+        assert cmd.work_mode == 2
+        assert cmd.mode_value == 12
+
+    @pytest.mark.asyncio
     async def test_set_manual_preset_reuses_valid_mode_value_outside_manual_mode(
         self, h7107_entity
     ):

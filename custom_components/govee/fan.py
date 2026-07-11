@@ -362,15 +362,25 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
 
         mode_value = percentage_to_ordered_list_item(self._fan_speeds, percentage)
 
+        work_mode = self._manual_work_mode
+        state = self.device_state
+        if (
+            state
+            and state.work_mode is not None
+            and int(state.work_mode) in self._preset_work_modes.values()
+        ):
+            work_mode = int(state.work_mode)
+
         _LOGGER.debug(
-            "Setting fan speed: percentage=%d, mode_value=%d",
+            "Setting fan speed: percentage=%d, work_mode=%d, mode_value=%d",
             percentage,
+            work_mode,
             mode_value,
         )
 
         await self.coordinator.async_control_device(
             self._device_id,
-            WorkModeCommand(work_mode=self._manual_work_mode, mode_value=mode_value),
+            WorkModeCommand(work_mode=work_mode, mode_value=mode_value),
         )
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
