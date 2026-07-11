@@ -902,3 +902,33 @@ class TestFanSpeedManualModeDiscovery:
         assert isinstance(cmd, WorkModeCommand)
         assert cmd.work_mode == 4
         assert cmd.mode_value == 6
+
+    @pytest.mark.asyncio
+    async def test_set_non_manual_preset_reuses_valid_speed_when_default_is_zero(
+        self, h7107_entity
+    ):
+        state = h7107_entity.coordinator.get_state.return_value
+        state.work_mode = 4
+        state.mode_value = 8
+
+        await h7107_entity.async_set_preset_mode("Auto")
+
+        cmd = h7107_entity.coordinator.async_control_device.call_args[0][1]
+        assert isinstance(cmd, WorkModeCommand)
+        assert cmd.work_mode == 2
+        assert cmd.mode_value == 8
+
+    @pytest.mark.asyncio
+    async def test_set_non_manual_preset_falls_back_to_lowest_speed_when_invalid(
+        self, h7107_entity
+    ):
+        state = h7107_entity.coordinator.get_state.return_value
+        state.work_mode = 2
+        state.mode_value = 0
+
+        await h7107_entity.async_set_preset_mode("Auto")
+
+        cmd = h7107_entity.coordinator.async_control_device.call_args[0][1]
+        assert isinstance(cmd, WorkModeCommand)
+        assert cmd.work_mode == 2
+        assert cmd.mode_value == 1
