@@ -294,7 +294,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         return int(mode_value)
 
     def _manual_mode_value_from_state(self) -> int | None:
-        """Return valid manual modeValue from state when available."""
+        """Return modeValue when state is in manual mode and value is a valid speed."""
         state = self.device_state
         if (
             state
@@ -429,8 +429,10 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                 mode_value = self._last_manual_mode_value
                 if manual_mode_value is not None:
                     mode_value = manual_mode_value
+                # Optimistically persist the selected manual speed.
                 self._last_manual_mode_value = mode_value
             else:
+                # Non-manual modes still require a positive modeValue; avoid 0.
                 mode_value = max(mode_value, self._min_manual_mode_value)
         else:
             # Manual mode fallback - use current speed or typical available speed
