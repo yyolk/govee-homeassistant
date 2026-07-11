@@ -127,6 +127,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         self._auto_work_mode = WORK_MODE_AUTO
         self._preset_work_modes: dict[str, int] = {}
         self._preset_commands: dict[str, tuple[int, int]] = {}
+        self._last_mode_values: dict[int, int] = {}
 
         self._init_work_mode_mappings(device)
 
@@ -282,6 +283,10 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                 min_manual_mode_value,
             )
 
+        self._last_mode_values = {
+            work_mode: mode_value for work_mode, mode_value in self._preset_commands.values()
+        }
+
     @staticmethod
     def _extract_mode_value(mode_value_opt: dict[str, Any]) -> int:
         """Extract a usable modeValue from a modeValue option definition."""
@@ -404,6 +409,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             work_mode = int(state.work_mode)
         if work_mode == self._manual_work_mode:
             self._last_manual_mode_value = mode_value
+        self._last_mode_values[work_mode] = mode_value
 
         _LOGGER.debug(
             "Setting fan speed: percentage=%d, work_mode=%d, mode_value=%d",
@@ -422,9 +428,28 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         manual_mode_value = self._manual_mode_value_from_state()
         if manual_mode_value is not None:
             self._last_manual_mode_value = manual_mode_value
+            self._last_mode_values[self._manual_work_mode] = manual_mode_value
+
+        state = self.device_state
+        if (
+            state
+            and state.work_mode is not None
+            and state.mode_value is not None
+            and int(state.work_mode) in self._preset_work_modes.values()
+        ):
+            state_work_mode = int(state.work_mode)
+            state_mode_value = int(state.mode_value)
+            if state_work_mode == self._manual_work_mode:
+                if state_mode_value in self._fan_speed_set:
+                    self._last_mode_values[state_work_mode] = state_mode_value
+            else:
+                self._last_mode_values[state_work_mode] = max(
+                    state_mode_value, self._min_manual_mode_value
+                )
 
         if preset_mode in self._preset_commands:
             work_mode, mode_value = self._preset_commands[preset_mode]
+            mode_value = self._last_mode_values.get(work_mode, mode_value)
             if preset_mode == self._manual_preset_name:
                 mode_value = self._last_manual_mode_value
                 if manual_mode_value is not None:
@@ -448,6 +473,8 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             work_mode,
             mode_value,
         )
+
+        self._last_mode_values[work_mode] = mode_value
 
         await self.coordinator.async_control_device(
             self._device_id,

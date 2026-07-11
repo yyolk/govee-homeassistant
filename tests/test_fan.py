@@ -988,3 +988,26 @@ class TestFanSpeedManualModeDiscovery:
         assert isinstance(cmd, WorkModeCommand)
         assert cmd.work_mode == 2
         assert cmd.mode_value == 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("preset_mode", "work_mode"),
+        [("Sleep", 3), ("Nature", 5)],
+    )
+    async def test_set_non_manual_preset_restores_last_mode_value_after_mode_switch(
+        self, h7107_entity, preset_mode, work_mode
+    ):
+        state = h7107_entity.coordinator.get_state.return_value
+        state.work_mode = work_mode
+        state.mode_value = 8
+
+        await h7107_entity.async_set_preset_mode("FanSpeed")
+        state.work_mode = 4
+        state.mode_value = 6
+
+        await h7107_entity.async_set_preset_mode(preset_mode)
+
+        cmd = h7107_entity.coordinator.async_control_device.call_args[0][1]
+        assert isinstance(cmd, WorkModeCommand)
+        assert cmd.work_mode == work_mode
+        assert cmd.mode_value == 8
