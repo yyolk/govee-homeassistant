@@ -226,7 +226,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                     manual_speeds.append(speed_value)
         self._fan_speeds = manual_speeds if manual_speeds else [1, 2, 3]
         default_manual_mode_value = self._fan_speeds[(len(self._fan_speeds) - 1) // 2]
-        min_manual_mode_value = min(self._fan_speeds) if self._fan_speeds else 1
+        min_manual_mode_value = min(self._fan_speeds)
 
         # Build ordered preset map from workMode options with de-duplication.
         seen: set[str] = set()

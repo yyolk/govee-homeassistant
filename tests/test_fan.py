@@ -856,6 +856,8 @@ class TestFanSpeedManualModeDiscovery:
 
     def test_speed_count_and_presets_use_capabilities(self, h7107_entity):
         assert h7107_entity.speed_count == 12
+        assert 0 not in h7107_entity._fan_speeds
+        assert min(h7107_entity._fan_speeds) == 1
         assert h7107_entity.percentage_step == pytest.approx(100 / 12)
         assert h7107_entity.preset_modes == [
             "FanSpeed",
