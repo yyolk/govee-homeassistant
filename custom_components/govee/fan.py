@@ -283,9 +283,9 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                 min_manual_mode_value,
             )
 
-        self._last_mode_values = {
-            work_mode: mode_value for work_mode, mode_value in self._preset_commands.values()
-        }
+        self._last_mode_values = {}
+        for work_mode, mode_value in self._preset_commands.values():
+            self._last_mode_values.setdefault(work_mode, mode_value)
 
     @staticmethod
     def _extract_mode_value(mode_value_opt: dict[str, Any]) -> int:
@@ -449,7 +449,6 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
 
         if preset_mode in self._preset_commands:
             work_mode, mode_value = self._preset_commands[preset_mode]
-            mode_value = self._last_mode_values.get(work_mode, mode_value)
             if preset_mode == self._manual_preset_name:
                 mode_value = self._last_manual_mode_value
                 if manual_mode_value is not None:
@@ -457,6 +456,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                 # Optimistically persist the selected manual speed.
                 self._last_manual_mode_value = mode_value
             else:
+                mode_value = self._last_mode_values.get(work_mode, mode_value)
                 # Non-manual modes still require a positive modeValue; avoid 0.
                 mode_value = max(mode_value, self._min_manual_mode_value)
         else:
