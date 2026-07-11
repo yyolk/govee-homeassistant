@@ -127,7 +127,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         self._auto_work_mode = WORK_MODE_AUTO
         self._preset_work_modes: dict[str, int] = {}
         self._preset_commands: dict[str, tuple[int, int]] = {}
-        self._last_mode_values: dict[int, int] = {}
+        self._last_mode_values: dict[int, int]
 
         self._init_work_mode_mappings(device)
 
@@ -437,6 +437,8 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             and state.mode_value is not None
             and int(state.work_mode) in self._preset_work_modes.values()
         ):
+            # Capture the current mode's value before switching away so
+            # returning to this preset restores the user's last selection.
             state_work_mode = int(state.work_mode)
             state_mode_value = int(state.mode_value)
             if state_work_mode == self._manual_work_mode:
