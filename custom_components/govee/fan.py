@@ -407,9 +407,6 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             and int(state.work_mode) in self._preset_work_modes.values()
         ):
             work_mode = int(state.work_mode)
-        if work_mode == self._manual_work_mode:
-            self._last_manual_mode_value = mode_value
-        self._last_mode_values[work_mode] = mode_value
 
         _LOGGER.debug(
             "Setting fan speed: percentage=%d, work_mode=%d, mode_value=%d",
@@ -422,6 +419,9 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             self._device_id,
             WorkModeCommand(work_mode=work_mode, mode_value=mode_value),
         )
+        if work_mode == self._manual_work_mode:
+            self._last_manual_mode_value = mode_value
+        self._last_mode_values[work_mode] = mode_value
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set the preset mode."""
@@ -474,12 +474,13 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             mode_value,
         )
 
-        self._last_mode_values[work_mode] = mode_value
-
         await self.coordinator.async_control_device(
             self._device_id,
             WorkModeCommand(work_mode=work_mode, mode_value=mode_value),
         )
+        if work_mode == self._manual_work_mode:
+            self._last_manual_mode_value = mode_value
+        self._last_mode_values[work_mode] = mode_value
 
     async def async_oscillate(self, oscillating: bool) -> None:
         """Oscillate the fan."""
