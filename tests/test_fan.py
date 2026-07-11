@@ -811,7 +811,7 @@ def _h7107_device():
                 "options": [
                     {
                         "name": "FanSpeed",
-                        "options": [{"value": i} for i in range(1, 13)],
+                        "options": [{"value": i} for i in range(0, 13)],
                     },
                     {"defaultValue": 0, "name": "Auto"},
                     {"defaultValue": 0, "name": "Sleep"},
