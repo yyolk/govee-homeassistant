@@ -127,7 +127,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         self._auto_work_mode = WORK_MODE_AUTO
         self._preset_work_modes: dict[str, int] = {}
         self._preset_commands: dict[str, tuple[int, int]] = {}
-        self._last_mode_values: dict[int, int]
+        self._last_mode_values: dict[int, int] = {}
 
         self._init_work_mode_mappings(device)
 
@@ -283,7 +283,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                 min_manual_mode_value,
             )
 
-        self._last_mode_values = {}
+        self._last_mode_values.clear()
         for work_mode, mode_value in self._preset_commands.values():
             self._last_mode_values.setdefault(work_mode, mode_value)
 
