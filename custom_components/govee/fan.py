@@ -200,23 +200,33 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             if manual_name
             else []
         )
-        manual_speeds = [
-            int(opt.get("value"))
-            for opt in manual_sub_options
-            if opt.get("value") is not None and int(opt.get("value")) > 0
-        ]
+        manual_speeds: list[int] = []
+        for opt in manual_sub_options:
+            raw_value = opt.get("value")
+            if raw_value is None:
+                continue
+            try:
+                speed_value = int(raw_value)
+            except (TypeError, ValueError):
+                continue
+            if speed_value > 0:
+                manual_speeds.append(speed_value)
         if not manual_speeds:
-            fallback_speeds = [
-                opt["mode_value"]
-                for opt in device.get_fan_speed_options()
-                if opt["work_mode"] == self._manual_work_mode and int(opt["mode_value"]) > 0
-            ]
-            manual_speeds = [int(v) for v in fallback_speeds]
+            for opt in device.get_fan_speed_options():
+                if opt.get("work_mode") != self._manual_work_mode:
+                    continue
+                raw_value = opt.get("mode_value")
+                if raw_value is None:
+                    continue
+                try:
+                    speed_value = int(raw_value)
+                except (TypeError, ValueError):
+                    continue
+                if speed_value > 0:
+                    manual_speeds.append(speed_value)
         self._fan_speeds = manual_speeds if manual_speeds else [1, 2, 3]
         default_manual_mode_value = self._fan_speeds[(len(self._fan_speeds) - 1) // 2]
-        min_manual_mode_value = (
-            max(1, min(self._fan_speeds)) if self._fan_speeds else 1
-        )
+        min_manual_mode_value = min(self._fan_speeds) if self._fan_speeds else 1
 
         # Build ordered preset map from workMode options with de-duplication.
         seen: set[str] = set()
