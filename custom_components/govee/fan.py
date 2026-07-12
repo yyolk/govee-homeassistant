@@ -346,7 +346,6 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         # Return percentage for speed-bearing modes (manual + presets that expose speed).
         if state.work_mode in self._speed_work_modes:
             mode_value: int | None = None
-            cached_mode_value: int | None = None
             try:
                 if state.mode_value is not None:
                     mode_value = int(state.mode_value)
@@ -354,9 +353,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                 mode_value = None
 
             if mode_value not in self._fan_speed_set:
-                cached_mode_value = self._last_mode_values.get(int(state.work_mode))
-                if cached_mode_value in self._fan_speed_set:
-                    mode_value = cached_mode_value
+                mode_value = self._last_mode_values.get(int(state.work_mode))
 
             if mode_value in self._fan_speed_set:
                 return ordered_list_item_to_percentage(self._fan_speeds, mode_value)
@@ -513,9 +510,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         )
         if work_mode == self._manual_work_mode:
             self._last_manual_mode_value = mode_value
-        self._last_mode_values[work_mode] = (
-            mode_value if work_mode not in self._speedless_work_modes else 0
-        )
+        self._last_mode_values[work_mode] = mode_value
 
     async def async_oscillate(self, oscillating: bool) -> None:
         """Oscillate the fan."""

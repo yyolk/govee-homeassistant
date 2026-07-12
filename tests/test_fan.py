@@ -1030,7 +1030,9 @@ class TestFanSpeedManualModeDiscovery:
         state.mode_value = 0
         assert h7107_entity.percentage == 66
 
-    def test_speed_percentage_returns_none_without_cached_value_for_sleep(self, h7107_entity):
+    def test_speed_percentage_returns_none_without_cached_value_for_speed_mode(
+        self, h7107_entity
+    ):
         state = h7107_entity.coordinator.get_state.return_value
         state.work_mode = 3
         state.mode_value = 0
