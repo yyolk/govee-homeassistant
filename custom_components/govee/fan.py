@@ -432,7 +432,6 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             and int(state.work_mode) in self._speed_work_modes
         ):
             work_mode = int(state.work_mode)
-
         _LOGGER.debug(
             "Setting fan speed: percentage=%d, work_mode=%d, mode_value=%d",
             percentage,
