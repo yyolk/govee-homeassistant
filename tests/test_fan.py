@@ -782,6 +782,29 @@ class TestFanDuplicatePreset:
         assert isinstance(cmd, WorkModeCommand)
         assert cmd.work_mode == 2
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("preset_mode", "work_mode"),
+        [("Sleep", 5), ("Nature", 6)],
+    )
+    async def test_set_non_manual_preset_restores_last_mode_value_after_mode_switch(
+        self, h7106_entity, preset_mode, work_mode
+    ):
+        state = h7106_entity.coordinator.get_state.return_value
+        state.work_mode = work_mode
+        state.mode_value = 3
+
+        await h7106_entity.async_set_preset_mode("FanSpeed")
+        state.work_mode = 1
+        state.mode_value = 4
+
+        await h7106_entity.async_set_preset_mode(preset_mode)
+
+        cmd = h7106_entity.coordinator.async_control_device.call_args[0][1]
+        assert isinstance(cmd, WorkModeCommand)
+        assert cmd.work_mode == work_mode
+        assert cmd.mode_value == 3
+
 
 def _h7107_device():
     """H7107-shaped fan where manual FanSpeed work mode is not value 1."""
