@@ -58,6 +58,8 @@ PRESET_MODE_AUTO = "Auto"
 WORK_MODE_GEAR = 1  # Manual speed control
 WORK_MODE_AUTO = 3  # Automatic mode
 MANUAL_MODE_NAMES = {"manual", "gearmode", "fanspeed"}
+SPEEDLESS_MODE_NAMES = {"auto", "custom"}
+SPEED_MODE_NAMES = {"sleep", "nature"}
 
 
 async def async_setup_entry(
@@ -128,6 +130,8 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         self._preset_work_modes: dict[str, int] = {}
         self._preset_commands: dict[str, tuple[int, int]] = {}
         self._last_mode_values: dict[int, int] = {}
+        self._speed_work_modes: set[int] = set()
+        self._speedless_work_modes: set[int] = set()
 
         self._init_work_mode_mappings(device)
 
@@ -185,6 +189,8 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
 
         if manual_name.lower() == "fanspeed":
             self._manual_preset_name = manual_name
+        self._speed_work_modes = {self._manual_work_mode}
+        self._speedless_work_modes.clear()
 
         # Discover auto mode ID from workMode options.
         for opt in work_mode_options:
@@ -251,9 +257,10 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             break
         if auto_name and auto_name.lower() not in seen:
             auto_mode_value = self._extract_mode_value(auto_mode_value_opt)
-            auto_mode_value = max(auto_mode_value, min_manual_mode_value)
+            auto_mode_value = max(auto_mode_value, 0)
             self._preset_work_modes[auto_name] = self._auto_work_mode
             self._preset_commands[auto_name] = (self._auto_work_mode, int(auto_mode_value))
+            self._speedless_work_modes.add(self._auto_work_mode)
             seen.add(auto_name.lower())
 
         for opt in work_mode_options:
@@ -268,20 +275,29 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             if preset_name.lower() in seen:
                 continue
 
-            mode_value_opt = mode_values_by_name.get(preset_name.lower(), {})
+            preset_name_lower = preset_name.lower()
+            mode_value_opt = mode_values_by_name.get(preset_name_lower, {})
             mode_value = self._extract_mode_value(mode_value_opt)
-            mode_value = max(mode_value, min_manual_mode_value)
+            work_mode = int(work_mode)
+            if preset_name_lower in SPEEDLESS_MODE_NAMES:
+                mode_value = max(mode_value, 0)
+                self._speedless_work_modes.add(work_mode)
+            else:
+                mode_value = max(mode_value, min_manual_mode_value)
+                if preset_name_lower in SPEED_MODE_NAMES:
+                    self._speed_work_modes.add(work_mode)
 
-            self._preset_work_modes[preset_name] = int(work_mode)
-            self._preset_commands[preset_name] = (int(work_mode), int(mode_value))
+            self._preset_work_modes[preset_name] = work_mode
+            self._preset_commands[preset_name] = (work_mode, int(mode_value))
             seen.add(preset_name.lower())
 
         if PRESET_MODE_AUTO.lower() not in seen:
             self._preset_work_modes[PRESET_MODE_AUTO] = self._auto_work_mode
             self._preset_commands[PRESET_MODE_AUTO] = (
                 self._auto_work_mode,
-                min_manual_mode_value,
+                0,
             )
+            self._speedless_work_modes.add(self._auto_work_mode)
 
         self._last_mode_values.clear()
         for work_mode, mode_value in self._preset_commands.values():
@@ -327,14 +343,20 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         if state is None:
             return None
 
-        # Only return percentage when in manual speed mode
-        if state.work_mode == self._manual_work_mode and state.mode_value is not None:
+        # Return percentage for speed-bearing modes (manual + presets that expose speed).
+        if state.work_mode in self._speed_work_modes:
+            mode_value: int | None = None
             try:
-                return ordered_list_item_to_percentage(
-                    self._fan_speeds, state.mode_value
-                )
-            except ValueError:
-                _LOGGER.debug("Unknown mode_value: %s", state.mode_value)
+                if state.mode_value is not None:
+                    mode_value = int(state.mode_value)
+            except (TypeError, ValueError):
+                mode_value = None
+
+            if mode_value not in self._fan_speed_set:
+                mode_value = self._last_mode_values.get(int(state.work_mode))
+
+            if mode_value in self._fan_speed_set:
+                return ordered_list_item_to_percentage(self._fan_speeds, mode_value)
 
         return None
 
@@ -405,6 +427,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             state
             and state.work_mode is not None
             and int(state.work_mode) in self._preset_work_modes.values()
+            and int(state.work_mode) not in self._speedless_work_modes
         ):
             work_mode = int(state.work_mode)
 
@@ -441,9 +464,11 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             # returning to this preset restores the user's last selection.
             state_work_mode = int(state.work_mode)
             state_mode_value = int(state.mode_value)
-            if state_work_mode == self._manual_work_mode:
+            if state_work_mode in self._speed_work_modes:
                 if state_mode_value in self._fan_speed_set:
                     self._last_mode_values[state_work_mode] = state_mode_value
+            elif state_work_mode in self._speedless_work_modes:
+                self._last_mode_values[state_work_mode] = 0
             else:
                 self._last_mode_values[state_work_mode] = max(
                     state_mode_value, self._min_manual_mode_value
@@ -457,10 +482,12 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                     mode_value = manual_mode_value
                 # Optimistically persist the selected manual speed.
                 self._last_manual_mode_value = mode_value
+            elif work_mode in self._speedless_work_modes:
+                mode_value = 0
             else:
                 mode_value = self._last_mode_values.get(work_mode, mode_value)
-                # Non-manual modes still require a positive modeValue; avoid 0.
-                mode_value = max(mode_value, self._min_manual_mode_value)
+                if work_mode in self._speed_work_modes:
+                    mode_value = max(mode_value, self._min_manual_mode_value)
         else:
             # Manual mode fallback - use current speed or typical available speed
             work_mode = self._manual_work_mode
@@ -482,7 +509,9 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         )
         if work_mode == self._manual_work_mode:
             self._last_manual_mode_value = mode_value
-        self._last_mode_values[work_mode] = mode_value
+        self._last_mode_values[work_mode] = (
+            mode_value if work_mode not in self._speedless_work_modes else 0
+        )
 
     async def async_oscillate(self, oscillating: bool) -> None:
         """Oscillate the fan."""

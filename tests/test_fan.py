@@ -876,7 +876,7 @@ class TestFanSpeedManualModeDiscovery:
         assert cmd.mode_value == 12
 
     @pytest.mark.asyncio
-    async def test_set_percentage_keeps_current_non_manual_mode(self, h7107_entity):
+    async def test_set_percentage_from_auto_uses_manual_mode(self, h7107_entity):
         state = h7107_entity.coordinator.get_state.return_value
         state.work_mode = 2
         state.mode_value = 0
@@ -885,7 +885,7 @@ class TestFanSpeedManualModeDiscovery:
 
         cmd = h7107_entity.coordinator.async_control_device.call_args[0][1]
         assert isinstance(cmd, WorkModeCommand)
-        assert cmd.work_mode == 2
+        assert cmd.work_mode == 4
         assert cmd.mode_value == 12
 
     @pytest.mark.asyncio
@@ -919,7 +919,7 @@ class TestFanSpeedManualModeDiscovery:
         assert cmd.mode_value == 6
 
     @pytest.mark.asyncio
-    async def test_set_non_manual_preset_uses_min_manual_mode_value(
+    async def test_set_auto_preset_uses_zero_mode_value(
         self, h7107_entity
     ):
         state = h7107_entity.coordinator.get_state.return_value
@@ -931,10 +931,10 @@ class TestFanSpeedManualModeDiscovery:
         cmd = h7107_entity.coordinator.async_control_device.call_args[0][1]
         assert isinstance(cmd, WorkModeCommand)
         assert cmd.work_mode == 2
-        assert cmd.mode_value == 1
+        assert cmd.mode_value == 0
 
     @pytest.mark.asyncio
-    async def test_set_non_manual_preset_uses_min_manual_mode_value_when_state_invalid(
+    async def test_set_auto_preset_uses_zero_mode_value_when_state_invalid(
         self, h7107_entity
     ):
         state = h7107_entity.coordinator.get_state.return_value
@@ -946,16 +946,16 @@ class TestFanSpeedManualModeDiscovery:
         cmd = h7107_entity.coordinator.async_control_device.call_args[0][1]
         assert isinstance(cmd, WorkModeCommand)
         assert cmd.work_mode == 2
-        assert cmd.mode_value == 1
+        assert cmd.mode_value == 0
 
     @pytest.mark.asyncio
-    async def test_set_custom_preset_uses_min_manual_mode_value(self, h7107_entity):
+    async def test_set_custom_preset_uses_zero_mode_value(self, h7107_entity):
         await h7107_entity.async_set_preset_mode("Custom")
 
         cmd = h7107_entity.coordinator.async_control_device.call_args[0][1]
         assert isinstance(cmd, WorkModeCommand)
         assert cmd.work_mode == 6
-        assert cmd.mode_value == 1
+        assert cmd.mode_value == 0
 
     @pytest.mark.asyncio
     async def test_set_manual_preset_restores_last_manual_speed_after_mode_switch(
@@ -977,7 +977,7 @@ class TestFanSpeedManualModeDiscovery:
         assert cmd.mode_value == 8
 
     @pytest.mark.asyncio
-    async def test_set_non_manual_preset_clamps_mode_value_to_manual_min(
+    async def test_set_auto_preset_keeps_zero_mode_value(
         self, h7107_entity
     ):
         h7107_entity._preset_commands["Auto"] = (2, 0)
@@ -987,7 +987,7 @@ class TestFanSpeedManualModeDiscovery:
         cmd = h7107_entity.coordinator.async_control_device.call_args[0][1]
         assert isinstance(cmd, WorkModeCommand)
         assert cmd.work_mode == 2
-        assert cmd.mode_value == 1
+        assert cmd.mode_value == 0
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -1011,3 +1011,20 @@ class TestFanSpeedManualModeDiscovery:
         assert isinstance(cmd, WorkModeCommand)
         assert cmd.work_mode == work_mode
         assert cmd.mode_value == 8
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "work_mode",
+        [3, 5],
+    )
+    async def test_speed_percentage_uses_cached_mode_value_for_sleep_and_nature(
+        self, h7107_entity, work_mode
+    ):
+        state = h7107_entity.coordinator.get_state.return_value
+        state.work_mode = work_mode
+        state.mode_value = 8
+        await h7107_entity.async_set_preset_mode("FanSpeed")
+
+        state.work_mode = work_mode
+        state.mode_value = 0
+        assert h7107_entity.percentage == 66
