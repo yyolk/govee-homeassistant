@@ -58,7 +58,7 @@ PRESET_MODE_AUTO = "Auto"
 WORK_MODE_GEAR = 1  # Manual speed control
 WORK_MODE_AUTO = 3  # Automatic mode
 MANUAL_MODE_NAMES = {"manual", "gearmode", "fanspeed"}
-SPEEDLESS_MODE_NAMES = {"auto", "custom"}
+SPEEDLESS_MODE_NAMES = {"auto", "custom", "turbo"}
 SPEED_MODE_NAMES = {"sleep", "nature"}
 
 
@@ -252,7 +252,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         auto_name = ""
         auto_mode_value_opt: dict[str, Any] = {}
         for opt in work_mode_options:
-            if str(opt.get("name", "")).lower() != PRESET_MODE_AUTO.lower():
+            if str(opt.get("name", "")).strip().lower() != PRESET_MODE_AUTO.lower():
                 continue
             auto_name = str(opt.get("name", "")).strip() or PRESET_MODE_AUTO
             auto_mode_value_opt = mode_values_by_name.get(auto_name.lower(), {})
