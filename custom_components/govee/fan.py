@@ -345,12 +345,14 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
 
         # Return percentage for speed-bearing modes (manual + presets that expose speed).
         if state.work_mode in self._speed_work_modes:
-            mode_value: int | None = None
-            try:
-                if state.mode_value is not None:
-                    mode_value = int(state.mode_value)
-            except (TypeError, ValueError):
+            mode_value: int | None
+            if state.mode_value is None:
                 mode_value = None
+            else:
+                try:
+                    mode_value = int(state.mode_value)
+                except (TypeError, ValueError):
+                    mode_value = None
 
             if mode_value not in self._fan_speed_set:
                 mode_value = self._last_mode_values.get(int(state.work_mode))
