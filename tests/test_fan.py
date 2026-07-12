@@ -1024,7 +1024,16 @@ class TestFanSpeedManualModeDiscovery:
         state.work_mode = work_mode
         state.mode_value = 8
         await h7107_entity.async_set_preset_mode("FanSpeed")
+        assert h7107_entity._last_mode_values[work_mode] == 8
 
         state.work_mode = work_mode
         state.mode_value = 0
         assert h7107_entity.percentage == 66
+
+    def test_speed_percentage_returns_none_without_cached_value_for_sleep(self, h7107_entity):
+        state = h7107_entity.coordinator.get_state.return_value
+        state.work_mode = 3
+        state.mode_value = 0
+        h7107_entity._last_mode_values.pop(3, None)
+
+        assert h7107_entity.percentage is None

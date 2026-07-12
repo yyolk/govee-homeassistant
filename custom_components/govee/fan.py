@@ -190,7 +190,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         if manual_name.lower() == "fanspeed":
             self._manual_preset_name = manual_name
         self._speed_work_modes = {self._manual_work_mode}
-        self._speedless_work_modes.clear()
+        self._speedless_work_modes = set()
 
         # Discover auto mode ID from workMode options.
         for opt in work_mode_options:
@@ -346,6 +346,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         # Return percentage for speed-bearing modes (manual + presets that expose speed).
         if state.work_mode in self._speed_work_modes:
             mode_value: int | None = None
+            cached_mode_value: int | None = None
             try:
                 if state.mode_value is not None:
                     mode_value = int(state.mode_value)
@@ -353,7 +354,9 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                 mode_value = None
 
             if mode_value not in self._fan_speed_set:
-                mode_value = self._last_mode_values.get(int(state.work_mode))
+                cached_mode_value = self._last_mode_values.get(int(state.work_mode))
+                if cached_mode_value in self._fan_speed_set:
+                    mode_value = cached_mode_value
 
             if mode_value in self._fan_speed_set:
                 return ordered_list_item_to_percentage(self._fan_speeds, mode_value)
@@ -484,10 +487,11 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                 self._last_manual_mode_value = mode_value
             elif work_mode in self._speedless_work_modes:
                 mode_value = 0
+            elif work_mode in self._speed_work_modes:
+                mode_value = self._last_mode_values.get(work_mode, mode_value)
+                mode_value = max(mode_value, self._min_manual_mode_value)
             else:
                 mode_value = self._last_mode_values.get(work_mode, mode_value)
-                if work_mode in self._speed_work_modes:
-                    mode_value = max(mode_value, self._min_manual_mode_value)
         else:
             # Manual mode fallback - use current speed or typical available speed
             work_mode = self._manual_work_mode
