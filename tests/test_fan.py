@@ -864,6 +864,50 @@ def _h7107_device():
     )
 
 
+def _h7107_whitespace_device():
+    """H7107 variant with whitespace/misaligned option names."""
+    from custom_components.govee.models import GoveeDevice, GoveeCapability
+    from custom_components.govee.models.device import (
+        CAPABILITY_ON_OFF,
+        CAPABILITY_WORK_MODE,
+        INSTANCE_POWER,
+        INSTANCE_WORK_MODE,
+    )
+
+    workmode = {
+        "dataType": "STRUCT",
+        "fields": [
+            {
+                "fieldName": "workMode",
+                "options": [
+                    {"name": "Auto ", "value": 2},
+                    {"name": "FanSpeed ", "value": 4},
+                ],
+            },
+            {
+                "fieldName": "modeValue",
+                "options": [
+                    {
+                        "name": "FanSpeed",
+                        "options": [{"value": 5}, {"value": 1}, {"value": 3}, {"value": 3}, {"value": 2}],
+                    },
+                    {"defaultValue": 0, "name": "Auto"},
+                ],
+            },
+        ],
+    }
+    return GoveeDevice(
+        device_id="AA:BB:CC:DD:EE:FF:71:70",
+        sku="H7107",
+        name="Whitespace Fan",
+        device_type="devices.types.fan",
+        capabilities=(
+            GoveeCapability(type=CAPABILITY_ON_OFF, instance=INSTANCE_POWER, parameters={}),
+            GoveeCapability(type=CAPABILITY_WORK_MODE, instance=INSTANCE_WORK_MODE, parameters=workmode),
+        ),
+    )
+
+
 class TestFanSpeedManualModeDiscovery:
     @pytest.fixture
     def h7107_entity(self):
@@ -1063,3 +1107,20 @@ class TestFanSpeedManualModeDiscovery:
         h7107_entity._last_mode_values.pop(3, None)
 
         assert h7107_entity.percentage is None
+
+
+class TestFanModeNameWhitespaceHandling:
+    def test_mode_names_are_stripped_and_manual_speeds_are_sorted_unique(self):
+        device = _h7107_whitespace_device()
+        state = MagicMock(work_mode=4, mode_value=5)
+        coordinator = MagicMock()
+        coordinator.devices = {device.device_id: device}
+        coordinator.get_state = MagicMock(return_value=state)
+        coordinator.async_control_device = AsyncMock(return_value=True)
+
+        entity = GoveeFanEntity(coordinator, device)
+
+        assert entity._manual_work_mode == 4
+        assert entity._auto_work_mode == 2
+        assert entity._fan_speeds == [1, 2, 3, 5]
+        assert entity.speed_count == 4

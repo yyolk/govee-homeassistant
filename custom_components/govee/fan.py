@@ -172,13 +172,15 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             break
 
         mode_values_by_name = {
-            str(opt.get("name", "")).lower(): opt for opt in mode_value_options if opt.get("name")
+            str(opt.get("name", "")).strip().lower(): opt
+            for opt in mode_value_options
+            if opt.get("name")
         }
 
         # Discover manual mode and its display name from workMode options.
         manual_name = ""
         for opt in work_mode_options:
-            opt_name = str(opt.get("name", ""))
+            opt_name = str(opt.get("name", "")).strip()
             opt_value = opt.get("value")
             if opt_value is None:
                 continue
@@ -195,7 +197,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         # Discover auto mode ID from workMode options.
         for opt in work_mode_options:
             if (
-                str(opt.get("name", "")).lower() == PRESET_MODE_AUTO.lower()
+                str(opt.get("name", "")).strip().lower() == PRESET_MODE_AUTO.lower()
                 and opt.get("value") is not None
             ):
                 self._auto_work_mode = int(opt["value"])
@@ -231,7 +233,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                     continue
                 if speed_value > 0:
                     manual_speeds.append(speed_value)
-        self._fan_speeds = manual_speeds if manual_speeds else [1, 2, 3]
+        self._fan_speeds = sorted(set(manual_speeds)) if manual_speeds else [1, 2, 3]
         default_manual_mode_value = self._fan_speeds[(len(self._fan_speeds) - 1) // 2]
         min_manual_mode_value = min(self._fan_speeds)
         self._min_manual_mode_value = min_manual_mode_value
