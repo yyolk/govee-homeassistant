@@ -282,10 +282,11 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             if preset_name_lower in SPEEDLESS_MODE_NAMES:
                 mode_value = max(mode_value, 0)
                 self._speedless_work_modes.add(work_mode)
-            else:
+            elif preset_name_lower in SPEED_MODE_NAMES:
                 mode_value = max(mode_value, min_manual_mode_value)
-                if preset_name_lower in SPEED_MODE_NAMES:
-                    self._speed_work_modes.add(work_mode)
+                self._speed_work_modes.add(work_mode)
+            else:
+                mode_value = max(mode_value, 0)
 
             self._preset_work_modes[preset_name] = work_mode
             self._preset_commands[preset_name] = (work_mode, int(mode_value))
@@ -428,8 +429,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         if (
             state
             and state.work_mode is not None
-            and int(state.work_mode) in self._preset_work_modes.values()
-            and int(state.work_mode) not in self._speedless_work_modes
+            and int(state.work_mode) in self._speed_work_modes
         ):
             work_mode = int(state.work_mode)
 
