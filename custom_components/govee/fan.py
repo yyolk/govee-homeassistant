@@ -337,7 +337,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         """Return the current speed as a percentage.
 
         Maps mode_value to percentage using the device's speed list.
-        Only applies when the current work_mode matches the discovered manual mode.
+        Applies to manual mode and other speed-bearing work modes discovered from presets.
         """
         state = self.device_state
         if state is None:
