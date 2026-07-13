@@ -50,13 +50,16 @@ _LOGGER = logging.getLogger(__name__)
 
 PARALLEL_UPDATES = 0
 
-# Preset modes: Normal uses gearMode (manual speed), Auto uses auto mode
+# Stable user-facing preset labels.
 PRESET_MODE_NORMAL = "Normal"
 PRESET_MODE_AUTO = "Auto"
 
-# Work mode constants
-WORK_MODE_GEAR = 1  # Manual speed control
-WORK_MODE_AUTO = 3  # Automatic mode
+# Capability fallback defaults when workMode metadata is unavailable.
+DEFAULT_WORK_MODE_MANUAL = 1
+DEFAULT_WORK_MODE_AUTO = 3
+# Backward-compatible aliases used by tests and existing imports.
+WORK_MODE_GEAR = DEFAULT_WORK_MODE_MANUAL
+WORK_MODE_AUTO = DEFAULT_WORK_MODE_AUTO
 MANUAL_MODE_NAMES = {"manual", "gearmode", "fanspeed"}
 SPEEDLESS_MODE_NAMES = {"auto", "custom", "turbo"}
 SPEED_MODE_NAMES = {"sleep", "nature"}
@@ -125,8 +128,8 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
 
         # Detect speed count from device capabilities
         self._manual_preset_name = PRESET_MODE_NORMAL
-        self._manual_work_mode = WORK_MODE_GEAR
-        self._auto_work_mode = WORK_MODE_AUTO
+        self._manual_work_mode = DEFAULT_WORK_MODE_MANUAL
+        self._auto_work_mode = DEFAULT_WORK_MODE_AUTO
         self._preset_work_modes: dict[str, int] = {}
         self._preset_commands: dict[str, tuple[int, int]] = {}
         self._last_mode_values: dict[int, int] = {}
