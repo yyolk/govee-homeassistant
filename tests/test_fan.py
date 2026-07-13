@@ -847,7 +847,7 @@ def _h7107_device():
                 "options": [
                     {
                         "name": "FanSpeed",
-                        "options": [{"value": i} for i in range(0, 13)],
+                        "options": [{"value": i} for i in range(1, 13)],
                     },
                     {"defaultValue": 0, "name": "Auto"},
                     {"defaultValue": 0, "name": "Sleep"},
@@ -902,6 +902,7 @@ def _h7107_whitespace_device():
                 "options": [
                     {
                         "name": "FanSpeed",
+                        # Duplicates are intentional to verify de-duplication.
                         "options": [{"value": 5}, {"value": 1}, {"value": 3}, {"value": 3}, {"value": 2}],
                     },
                     {"defaultValue": 0, "name": "Auto"},
