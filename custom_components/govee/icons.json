@@ -1,0 +1,22 @@
+{
+  "entity": {
+    "fan": {
+      "govee_fan": {
+        "default": "mdi:fan",
+        "state_attributes": {
+          "preset_mode": {
+            "default": "mdi:fan",
+            "state": {
+              "FanSpeed": "mdi:fan",
+              "Natural": "mdi:leaf",
+              "Sleep": "mdi:sleep",
+              "Auto": "mdi:fan-auto",
+              "Custom": "mdi:format-list-bulleted-type",
+              "Turbo": "mdi:car-turbocharger"
+            }
+          }
+        }
+      }
+    }
+  }
+}
