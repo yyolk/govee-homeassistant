@@ -134,10 +134,10 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         self._speed_work_modes: set[int] = set()
         self._speedless_work_modes: set[int] = set()
         self._work_mode_speed_values: dict[int, list[int]] = {}
+        self._work_mode_speed_sets: dict[int, set[int]] = {}
 
         self._init_work_mode_mappings(device)
 
-        self._fan_speed_set = set(self._fan_speeds)
         self._attr_speed_count = len(self._fan_speeds)
         self._attr_percentage_step = 100 / len(self._fan_speeds)
 
@@ -252,6 +252,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                     manual_speeds.append(speed_value)
         self._fan_speeds = sorted(set(manual_speeds)) if manual_speeds else [1, 2, 3]
         self._work_mode_speed_values[self._manual_work_mode] = self._fan_speeds
+        self._work_mode_speed_sets[self._manual_work_mode] = set(self._fan_speeds)
         default_manual_mode_value = self._fan_speeds[(len(self._fan_speeds) - 1) // 2]
         self._last_manual_mode_value = default_manual_mode_value
 
@@ -281,6 +282,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             if mode_value_speeds_by_name.get(auto_name.lower()):
                 self._speed_work_modes.add(self._auto_work_mode)
                 self._work_mode_speed_values[self._auto_work_mode] = mode_value_speeds_by_name[auto_name.lower()]
+                self._work_mode_speed_sets[self._auto_work_mode] = set(mode_value_speeds_by_name[auto_name.lower()])
             else:
                 self._speedless_work_modes.add(self._auto_work_mode)
             seen.add(auto_name.lower())
@@ -306,6 +308,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                 mode_value = max(mode_value, min(mode_speeds))
                 self._speed_work_modes.add(work_mode)
                 self._work_mode_speed_values[work_mode] = mode_speeds
+                self._work_mode_speed_sets[work_mode] = set(mode_speeds)
             else:
                 mode_value = max(mode_value, 0)
                 self._speedless_work_modes.add(work_mode)
@@ -343,7 +346,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
     def _manual_mode_value_from_state(self) -> int | None:
         """Return modeValue when state is in manual mode and value is a valid speed."""
         state = self.device_state
-        manual_speed_set = set(self._work_mode_speed_values.get(self._manual_work_mode, self._fan_speeds))
+        manual_speed_set = self._work_mode_speed_sets.get(self._manual_work_mode, set(self._fan_speeds))
         if (
             state
             and state.work_mode == self._manual_work_mode
@@ -373,7 +376,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         # Return percentage for speed-bearing modes (manual + presets that expose speed).
         if state.work_mode in self._speed_work_modes:
             speed_values = self._work_mode_speed_values.get(int(state.work_mode), self._fan_speeds)
-            speed_set = set(speed_values)
+            speed_set = self._work_mode_speed_sets.get(int(state.work_mode), set(speed_values))
             mode_value: int | None
             if state.mode_value is None:
                 mode_value = None
@@ -495,7 +498,8 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             state_mode_value = int(state.mode_value)
             if state_work_mode in self._speed_work_modes:
                 mode_speeds = self._work_mode_speed_values.get(state_work_mode, self._fan_speeds)
-                if state_mode_value in set(mode_speeds):
+                mode_speed_set = self._work_mode_speed_sets.get(state_work_mode, set(mode_speeds))
+                if state_mode_value in mode_speed_set:
                     self._last_mode_values[state_work_mode] = state_mode_value
             elif state_work_mode in self._speedless_work_modes:
                 self._last_mode_values[state_work_mode] = 0
