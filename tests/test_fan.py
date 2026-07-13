@@ -1134,4 +1134,5 @@ class TestFanModeNameWhitespaceHandling:
         assert entity._manual_work_mode == 4
         assert entity._auto_work_mode == 2
         assert entity._fan_speeds == [1, 2, 3, 5]
+        assert entity._fan_speeds.count(3) == 1
         assert entity.speed_count == 4
