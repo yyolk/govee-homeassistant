@@ -318,7 +318,10 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             mode_value = first.get("value")
         if mode_value is None:
             mode_value = mode_value_opt.get("value", 0)
-        return int(mode_value)
+        try:
+            return int(mode_value)
+        except (TypeError, ValueError):
+            return 0
 
     def _manual_mode_value_from_state(self) -> int | None:
         """Return modeValue when state is in manual mode and value is a valid speed."""
