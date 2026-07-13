@@ -818,6 +818,25 @@ class TestFanDuplicatePreset:
         assert cmd.work_mode == 5
         assert cmd.mode_value == 3
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("percentage", "expected_mode_value"),
+        [(1, 1), (50, 2), (100, 3)],
+    )
+    async def test_set_percentage_in_sleep_maps_across_sleep_speed_range(
+        self, h7106_entity, percentage, expected_mode_value
+    ):
+        state = h7106_entity.coordinator.get_state.return_value
+        state.work_mode = 5
+        state.mode_value = 2
+
+        await h7106_entity.async_set_percentage(percentage)
+
+        cmd = h7106_entity.coordinator.async_control_device.call_args[0][1]
+        assert isinstance(cmd, WorkModeCommand)
+        assert cmd.work_mode == 5
+        assert cmd.mode_value == expected_mode_value
+
 
 def _h7107_device():
     """H7107-shaped fan where manual FanSpeed work mode is not value 1."""
@@ -1106,6 +1125,13 @@ class TestFanSpeedManualModeDiscovery:
         state.mode_value = 8
         await h7107_entity.async_set_preset_mode("FanSpeed")
         assert h7107_entity._last_mode_values[work_mode] == 0
+        assert h7107_entity.percentage is None
+
+    def test_percentage_returns_none_for_speedless_mode_without_switch(self, h7107_entity):
+        state = h7107_entity.coordinator.get_state.return_value
+        state.work_mode = 3
+        state.mode_value = 0
+
         assert h7107_entity.percentage is None
 
     @pytest.mark.asyncio

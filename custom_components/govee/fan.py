@@ -348,7 +348,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
     def _manual_mode_value_from_state(self) -> int | None:
         """Return modeValue when state is in manual mode and value is a valid speed."""
         state = self.device_state
-        manual_speed_set = self._work_mode_speed_sets.get(self._manual_work_mode, self._fan_speed_set)
+        manual_speed_set = self._work_mode_speed_sets[self._manual_work_mode]
         if (
             state
             and state.work_mode == self._manual_work_mode
@@ -377,8 +377,9 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
 
         # Return percentage for speed-bearing modes (manual + presets that expose speed).
         if state.work_mode in self._speed_work_modes:
-            speed_values = self._work_mode_speed_values.get(int(state.work_mode), self._fan_speeds)
-            speed_set = self._work_mode_speed_sets.get(int(state.work_mode), self._fan_speed_set)
+            work_mode = int(state.work_mode)
+            speed_values = self._work_mode_speed_values[work_mode]
+            speed_set = self._work_mode_speed_sets[work_mode]
             mode_value: int | None
             if state.mode_value is None:
                 mode_value = None
@@ -389,7 +390,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                     mode_value = None
 
             if mode_value not in speed_set:
-                mode_value = self._last_mode_values.get(int(state.work_mode))
+                mode_value = self._last_mode_values.get(work_mode)
 
             if mode_value in speed_set:
                 return ordered_list_item_to_percentage(speed_values, mode_value)
