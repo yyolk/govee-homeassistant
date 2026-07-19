@@ -8,7 +8,7 @@
             "default": "mdi:fan",
             "state": {
               "Normal": "mdi:fan",
-              "Natural": "mdi:leaf",
+              "Nature": "mdi:leaf",
               "Sleep": "mdi:sleep",
               "Auto": "mdi:fan-auto",
               "Custom": "mdi:format-list-bulleted-type",
