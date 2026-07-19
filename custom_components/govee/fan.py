@@ -61,6 +61,14 @@ DEFAULT_WORK_MODE_AUTO = 3
 WORK_MODE_GEAR = DEFAULT_WORK_MODE_MANUAL
 WORK_MODE_AUTO = DEFAULT_WORK_MODE_AUTO
 MANUAL_MODE_NAMES = {"manual", "gearmode", "fanspeed"}
+KNOWN_PRESET_MODE_NAMES = {
+    "normal": PRESET_MODE_NORMAL,
+    "auto": PRESET_MODE_AUTO,
+    "nature": "Nature",
+    "sleep": "Sleep",
+    "custom": "Custom",
+    "turbo": "Turbo",
+}
 
 
 async def async_setup_entry(
@@ -277,18 +285,26 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             auto_name = str(opt.get("name", "")).strip() or PRESET_MODE_AUTO
             auto_mode_value_opt = mode_values_by_name.get(auto_name.lower(), {})
             break
-        if auto_name and auto_name.lower() not in seen:
+        auto_preset_name = self._canonical_preset_name(auto_name) if auto_name else ""
+        if auto_preset_name and auto_preset_name.lower() not in seen:
             auto_mode_value = self._extract_mode_value(auto_mode_value_opt)
             auto_mode_value = max(auto_mode_value, 0)
-            self._preset_work_modes[auto_name] = self._auto_work_mode
-            self._preset_commands[auto_name] = (self._auto_work_mode, int(auto_mode_value))
+            self._preset_work_modes[auto_preset_name] = self._auto_work_mode
+            self._preset_commands[auto_preset_name] = (
+                self._auto_work_mode,
+                int(auto_mode_value),
+            )
             if mode_value_speeds_by_name.get(auto_name.lower()):
                 self._speed_work_modes.add(self._auto_work_mode)
-                self._work_mode_speed_values[self._auto_work_mode] = mode_value_speeds_by_name[auto_name.lower()]
-                self._work_mode_speed_sets[self._auto_work_mode] = set(mode_value_speeds_by_name[auto_name.lower()])
+                self._work_mode_speed_values[self._auto_work_mode] = (
+                    mode_value_speeds_by_name[auto_name.lower()]
+                )
+                self._work_mode_speed_sets[self._auto_work_mode] = set(
+                    mode_value_speeds_by_name[auto_name.lower()]
+                )
             else:
                 self._speedless_work_modes.add(self._auto_work_mode)
-            seen.add(auto_name.lower())
+            seen.add(auto_preset_name.lower())
 
         for opt in work_mode_options:
             preset_name = str(opt.get("name", "")).strip()
@@ -299,7 +315,8 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                 continue
             if preset_name.lower() == PRESET_MODE_AUTO.lower():
                 continue
-            if preset_name.lower() in seen:
+            canonical_preset_name = self._canonical_preset_name(preset_name)
+            if canonical_preset_name.lower() in seen:
                 continue
 
             preset_name_lower = preset_name.lower()
@@ -316,9 +333,9 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                 mode_value = max(mode_value, 0)
                 self._speedless_work_modes.add(work_mode)
 
-            self._preset_work_modes[preset_name] = work_mode
-            self._preset_commands[preset_name] = (work_mode, int(mode_value))
-            seen.add(preset_name.lower())
+            self._preset_work_modes[canonical_preset_name] = work_mode
+            self._preset_commands[canonical_preset_name] = (work_mode, int(mode_value))
+            seen.add(canonical_preset_name.lower())
 
         if PRESET_MODE_AUTO.lower() not in seen:
             self._preset_work_modes[PRESET_MODE_AUTO] = self._auto_work_mode
@@ -345,6 +362,15 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             return int(mode_value)
         except (TypeError, ValueError):
             return 0
+
+    @staticmethod
+    def _canonical_preset_name(name: str) -> str:
+        """Normalize known fan presets to canonical title-cased labels."""
+        normalized = name.strip()
+        lowered = normalized.lower()
+        if lowered in KNOWN_PRESET_MODE_NAMES:
+            return KNOWN_PRESET_MODE_NAMES[lowered]
+        return normalized
 
     def _manual_mode_value_from_state(self) -> int | None:
         """Return modeValue when state is in manual mode and value is a valid speed."""
@@ -484,6 +510,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set the preset mode."""
+        normalized_preset_mode = self._canonical_preset_name(preset_mode)
         manual_mode_value = self._manual_mode_value_from_state()
         if manual_mode_value is not None:
             self._last_manual_mode_value = manual_mode_value
@@ -510,9 +537,13 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             else:
                 self._last_mode_values[state_work_mode] = state_mode_value
 
-        if preset_mode in self._preset_commands:
-            work_mode, mode_value = self._preset_commands[preset_mode]
-            if preset_mode == self._manual_preset_name:
+        preset_key = preset_mode
+        if preset_key not in self._preset_commands and normalized_preset_mode in self._preset_commands:
+            preset_key = normalized_preset_mode
+
+        if preset_key in self._preset_commands:
+            work_mode, mode_value = self._preset_commands[preset_key]
+            if preset_key == self._manual_preset_name:
                 mode_value = self._last_manual_mode_value
                 if manual_mode_value is not None:
                     mode_value = manual_mode_value
@@ -538,7 +569,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
 
         _LOGGER.debug(
             "Setting preset mode: preset=%s, work_mode=%d, mode_value=%d",
-            preset_mode,
+            preset_key,
             work_mode,
             mode_value,
         )

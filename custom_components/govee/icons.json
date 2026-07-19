@@ -11,12 +11,7 @@
               "Sleep": "mdi:sleep",
               "Auto": "mdi:fan-auto",
               "Custom": "mdi:format-list-bulleted-type",
-              "Turbo": "mdi:car-turbocharger",
-              "nature": "mdi:leaf",
-              "sleep": "mdi:sleep",
-              "auto": "mdi:fan-auto",
-              "custom": "mdi:format-list-bulleted-type",
-              "turbo": "mdi:car-turbocharger"
+              "Turbo": "mdi:car-turbocharger"
             }
           }
         }
