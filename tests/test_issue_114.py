@@ -575,6 +575,13 @@ class TestH7124FanPresets:
         assert cmd.mode_value == 0
 
     @pytest.mark.asyncio
+    async def test_set_preset_normal_alias_still_works(self, fan):
+        await fan.async_set_preset_mode("Normal")
+        cmd = fan.coordinator.async_control_device.call_args[0][1]
+        assert isinstance(cmd, WorkModeCommand)
+        assert cmd.work_mode == fan._manual_work_mode
+
+    @pytest.mark.asyncio
     async def test_set_percentage_from_turbo_uses_manual_mode(self, fan):
         state = fan.coordinator.get_state.return_value
         state.work_mode = 7
