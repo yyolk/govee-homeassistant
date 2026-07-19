@@ -1170,6 +1170,8 @@ class TestFanModeNameWhitespaceHandling:
         assert GoveeFanEntity._normalize_preset_mode("  Turbo  ") == "turbo"
         assert GoveeFanEntity._normalize_preset_mode("  Breezy  ") == "breezy"
         assert GoveeFanEntity._normalize_preset_mode("   ") is None
+        assert GoveeFanEntity._normalize_preset_mode(0) is None
+        assert GoveeFanEntity._normalize_preset_mode(False) is None
 
     @pytest.mark.asyncio
     async def test_set_empty_preset_mode_falls_back_to_manual(self):
