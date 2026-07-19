@@ -50,9 +50,9 @@ _LOGGER = logging.getLogger(__name__)
 
 PARALLEL_UPDATES = 0
 
-# Stable user-facing preset labels.
-PRESET_MODE_NORMAL = "Normal"
-PRESET_MODE_AUTO = "Auto"
+# Stable preset identifiers (translated to user-facing labels via strings.json).
+PRESET_MODE_NORMAL = "normal"
+PRESET_MODE_AUTO = "auto"
 
 # Capability fallback defaults when workMode metadata is unavailable.
 DEFAULT_WORK_MODE_MANUAL = 1
@@ -64,10 +64,10 @@ MANUAL_MODE_NAMES = {"manual", "gearmode", "fanspeed"}
 KNOWN_PRESET_MODE_NAMES = {
     "normal": PRESET_MODE_NORMAL,
     "auto": PRESET_MODE_AUTO,
-    "nature": "Nature",
-    "sleep": "Sleep",
-    "custom": "Custom",
-    "turbo": "Turbo",
+    "nature": "nature",
+    "sleep": "sleep",
+    "custom": "custom",
+    "turbo": "turbo",
 }
 
 
@@ -365,7 +365,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
 
     @staticmethod
     def _canonical_preset_name(name: str) -> str:
-        """Normalize known fan presets to canonical title-cased labels."""
+        """Normalize known fan presets to canonical translation-key values."""
         normalized = name.strip()
         lowered = normalized.lower()
         if lowered in KNOWN_PRESET_MODE_NAMES:

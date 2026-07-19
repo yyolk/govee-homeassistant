@@ -759,17 +759,17 @@ class TestFanDuplicatePreset:
         # Presets come directly from capabilities with no duplicates.
         assert modes.count(PRESET_MODE_AUTO) == 1
         assert PRESET_MODE_NORMAL in modes
-        assert "Sleep" in modes
-        assert "Nature" in modes
-        assert "Custom" in modes
+        assert "sleep" in modes
+        assert "nature" in modes
+        assert "custom" in modes
         assert len(modes) == len(set(modes))
 
     def test_preset_modes_map_to_discovered_work_modes(self, h7106_entity):
         assert h7106_entity._auto_work_mode == 2
-        assert h7106_entity._preset_work_modes.get("Auto") == 2
+        assert h7106_entity._preset_work_modes.get("auto") == 2
         assert h7106_entity._manual_work_mode == 1
         assert h7106_entity._manual_preset_name == PRESET_MODE_NORMAL
-        assert h7106_entity._preset_work_modes.get("Sleep") == 5
+        assert h7106_entity._preset_work_modes.get("sleep") == 5
 
     def test_speed_count_and_percentage_step_from_fanspeed_modevalue(self, h7106_entity):
         assert h7106_entity.speed_count == 8
@@ -961,10 +961,10 @@ class TestFanSpeedManualModeDiscovery:
         assert h7107_entity.percentage_step == pytest.approx(100 / 12)
         assert h7107_entity.preset_modes == [
             PRESET_MODE_NORMAL,
-            "Auto",
-            "Sleep",
-            "Nature",
-            "Custom",
+            "auto",
+            "sleep",
+            "nature",
+            "custom",
         ]
 
     @pytest.mark.asyncio
