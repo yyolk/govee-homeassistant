@@ -63,7 +63,7 @@ WORK_MODE_AUTO = DEFAULT_WORK_MODE_AUTO
 MANUAL_MODE_NAMES = {"manual", "gearmode", "fanspeed"}
 # Canonical preset keys are lowercase so preset_mode always matches
 # Home Assistant translation keys and icon state keys (strings.json/icons.json).
-PRESET_MODE_ALIASES = {
+PRESET_MODE_MAPPING = {
     "normal": PRESET_MODE_NORMAL,
     "auto": PRESET_MODE_AUTO,
     "manual": PRESET_MODE_NORMAL,
@@ -368,6 +368,8 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
     @staticmethod
     def _normalize_mode_name(name: Any) -> str | None:
         """Normalize arbitrary mode names to lowercase keys with collapsed whitespace."""
+        if name is None:
+            return None
         if not isinstance(name, str):
             return None
         normalized = " ".join(name.split()).lower()
@@ -379,9 +381,9 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
     def _normalize_preset_mode(name: Any) -> str | None:
         """Normalize preset names into canonical lowercase internal keys."""
         normalized = GoveeFanEntity._normalize_mode_name(name)
-        if not normalized:
+        if normalized is None:
             return None
-        return PRESET_MODE_ALIASES.get(normalized, normalized)
+        return PRESET_MODE_MAPPING.get(normalized, normalized)
 
     def _manual_mode_value_from_state(self) -> int | None:
         """Return modeValue when state is in manual mode and value is a valid speed."""
@@ -523,7 +525,11 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         """Set the preset mode."""
         normalized_preset_mode = self._normalize_preset_mode(preset_mode)
         if normalized_preset_mode is None:
-            _LOGGER.warning("Invalid preset mode %r; falling back to %r", preset_mode, PRESET_MODE_NORMAL)
+            _LOGGER.debug(
+                "Invalid or empty preset mode received %r; falling back to %r",
+                preset_mode,
+                PRESET_MODE_NORMAL,
+            )
             normalized_preset_mode = PRESET_MODE_NORMAL
         manual_mode_value = self._manual_mode_value_from_state()
         if manual_mode_value is not None:
