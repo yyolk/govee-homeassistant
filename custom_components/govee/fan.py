@@ -216,7 +216,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             opt_value = opt.get("value")
             if opt_value is not None and opt_name in MANUAL_MODE_NAMES:
                 self._manual_work_mode = int(opt_value)
-                manual_name = raw_opt_name.strip()
+                manual_name = opt_name
                 break
 
         # The manual preset is always surfaced as "Normal" regardless of the
@@ -233,7 +233,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
 
         # Build authoritative manual speeds from modeValue nested options.
         manual_sub_options = (
-            mode_values_by_name.get(manual_name.lower(), {}).get("options", [])
+            mode_values_by_name.get(manual_name, {}).get("options", [])
             if manual_name
             else []
         )
