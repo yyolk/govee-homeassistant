@@ -1164,9 +1164,11 @@ class TestFanModeNameWhitespaceHandling:
         assert entity.speed_count == 4
 
     def test_normalize_preset_mode_handles_case_whitespace_alias_and_empty(self):
+        assert GoveeFanEntity._normalize_mode_name("FanSpeed") == "fanspeed"
         assert GoveeFanEntity._normalize_preset_mode(" Auto ") == PRESET_MODE_AUTO
         assert GoveeFanEntity._normalize_preset_mode("FanSpeed") == PRESET_MODE_NORMAL
         assert GoveeFanEntity._normalize_preset_mode("  Turbo  ") == "turbo"
+        assert GoveeFanEntity._normalize_preset_mode("  Breezy  ") == "breezy"
         assert GoveeFanEntity._normalize_preset_mode("   ") is None
 
     @pytest.mark.asyncio
