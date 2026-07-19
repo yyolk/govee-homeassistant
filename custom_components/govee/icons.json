@@ -7,7 +7,6 @@
           "preset_mode": {
             "default": "mdi:fan",
             "state": {
-              "normal": "mdi:fan",
               "nature": "mdi:leaf",
               "sleep": "mdi:sleep",
               "auto": "mdi:fan-auto",
