@@ -61,9 +61,14 @@ DEFAULT_WORK_MODE_AUTO = 3
 WORK_MODE_GEAR = DEFAULT_WORK_MODE_MANUAL
 WORK_MODE_AUTO = DEFAULT_WORK_MODE_AUTO
 MANUAL_MODE_NAMES = {"manual", "gearmode", "fanspeed"}
-KNOWN_PRESET_MODE_NAMES = {
+# Canonical preset keys are lowercase so preset_mode always matches
+# Home Assistant translation/icon state keys (strings.json/icons.json).
+PRESET_MODE_ALIASES = {
     "normal": PRESET_MODE_NORMAL,
     "auto": PRESET_MODE_AUTO,
+    "manual": PRESET_MODE_NORMAL,
+    "gearmode": PRESET_MODE_NORMAL,
+    "fanspeed": PRESET_MODE_NORMAL,
     "nature": "nature",
     "sleep": "sleep",
     "custom": "custom",
@@ -183,9 +188,9 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             break
 
         mode_values_by_name = {
-            str(opt.get("name", "")).strip().lower(): opt
+            normalized_name: opt
             for opt in mode_value_options
-            if opt.get("name")
+            if (normalized_name := self._normalize_mode_name(opt.get("name"))) is not None
         }
         mode_value_speeds_by_name: dict[str, list[int]] = {}
         for mode_name, mode_opt in mode_values_by_name.items():
@@ -206,13 +211,13 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         # Discover manual mode and its display name from workMode options.
         manual_name = ""
         for opt in work_mode_options:
-            opt_name = str(opt.get("name", "")).strip()
+            opt_name = self._normalize_mode_name(opt.get("name"))
             opt_value = opt.get("value")
-            if opt_value is None:
+            if opt_value is None or opt_name is None:
                 continue
-            if opt_name.lower() in MANUAL_MODE_NAMES:
+            if opt_name in MANUAL_MODE_NAMES:
                 self._manual_work_mode = int(opt_value)
-                manual_name = opt_name
+                manual_name = str(opt.get("name", "")).strip()
                 break
 
         # The manual preset is always surfaced as "Normal" regardless of the
@@ -223,10 +228,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
 
         # Discover auto mode ID from workMode options.
         for opt in work_mode_options:
-            if (
-                str(opt.get("name", "")).strip().lower() == PRESET_MODE_AUTO.lower()
-                and opt.get("value") is not None
-            ):
+            if self._normalize_mode_name(opt.get("name")) == PRESET_MODE_AUTO and opt.get("value") is not None:
                 self._auto_work_mode = int(opt["value"])
                 break
 
@@ -280,12 +282,13 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         auto_name = ""
         auto_mode_value_opt: dict[str, Any] = {}
         for opt in work_mode_options:
-            if str(opt.get("name", "")).strip().lower() != PRESET_MODE_AUTO.lower():
+            normalized_auto_name = self._normalize_mode_name(opt.get("name"))
+            if normalized_auto_name != PRESET_MODE_AUTO:
                 continue
-            auto_name = str(opt.get("name", "")).strip() or PRESET_MODE_AUTO
-            auto_mode_value_opt = mode_values_by_name.get(auto_name.lower(), {})
+            auto_name = self._normalize_preset_mode(normalized_auto_name) or PRESET_MODE_AUTO
+            auto_mode_value_opt = mode_values_by_name.get(auto_name, {})
             break
-        auto_preset_name = self._canonical_preset_name(auto_name) if auto_name else ""
+        auto_preset_name = auto_name or ""
         if auto_preset_name and auto_preset_name.lower() not in seen:
             auto_mode_value = self._extract_mode_value(auto_mode_value_opt)
             auto_mode_value = max(auto_mode_value, 0)
@@ -307,22 +310,23 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             seen.add(auto_preset_name.lower())
 
         for opt in work_mode_options:
-            preset_name = str(opt.get("name", "")).strip()
+            preset_name = self._normalize_mode_name(opt.get("name"))
             work_mode = opt.get("value")
             if not preset_name or work_mode is None:
                 continue
-            if preset_name.lower() in MANUAL_MODE_NAMES:
+            if preset_name in MANUAL_MODE_NAMES:
                 continue
-            if preset_name.lower() == PRESET_MODE_AUTO.lower():
+            if preset_name == PRESET_MODE_AUTO:
                 continue
-            canonical_preset_name = self._canonical_preset_name(preset_name)
+            canonical_preset_name = self._normalize_preset_mode(preset_name)
+            if canonical_preset_name is None:
+                continue
             if canonical_preset_name.lower() in seen:
                 continue
 
-            preset_name_lower = preset_name.lower()
-            mode_value_opt = mode_values_by_name.get(preset_name_lower, {})
+            mode_value_opt = mode_values_by_name.get(preset_name, {})
             mode_value = self._extract_mode_value(mode_value_opt)
-            mode_speeds = mode_value_speeds_by_name.get(preset_name_lower, [])
+            mode_speeds = mode_value_speeds_by_name.get(preset_name, [])
             work_mode = int(work_mode)
             if mode_speeds:
                 mode_value = max(mode_value, min(mode_speeds))
@@ -364,13 +368,20 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             return 0
 
     @staticmethod
-    def _canonical_preset_name(name: str) -> str:
-        """Normalize known fan presets to canonical translation-key values."""
-        normalized = name.strip()
-        lowered = normalized.lower()
-        if lowered in KNOWN_PRESET_MODE_NAMES:
-            return KNOWN_PRESET_MODE_NAMES[lowered]
+    def _normalize_mode_name(name: Any) -> str | None:
+        """Normalize arbitrary mode names to lowercase keys with collapsed whitespace."""
+        normalized = " ".join(str(name).split()).lower() if name is not None else ""
+        if not normalized:
+            return None
         return normalized
+
+    @staticmethod
+    def _normalize_preset_mode(name: Any) -> str | None:
+        """Normalize preset names into canonical lowercase internal keys."""
+        normalized = GoveeFanEntity._normalize_mode_name(name)
+        if not normalized:
+            return None
+        return PRESET_MODE_ALIASES.get(normalized, normalized)
 
     def _manual_mode_value_from_state(self) -> int | None:
         """Return modeValue when state is in manual mode and value is a valid speed."""
@@ -510,7 +521,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set the preset mode."""
-        normalized_preset_mode = self._canonical_preset_name(preset_mode)
+        normalized_preset_mode = self._normalize_preset_mode(preset_mode) or PRESET_MODE_NORMAL
         manual_mode_value = self._manual_mode_value_from_state()
         if manual_mode_value is not None:
             self._last_manual_mode_value = manual_mode_value
@@ -537,9 +548,9 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             else:
                 self._last_mode_values[state_work_mode] = state_mode_value
 
-        preset_key = preset_mode
-        if preset_key not in self._preset_commands and normalized_preset_mode in self._preset_commands:
-            preset_key = normalized_preset_mode
+        preset_key = normalized_preset_mode
+        if preset_key not in self._preset_commands and preset_mode in self._preset_commands:
+            preset_key = preset_mode
 
         if preset_key in self._preset_commands:
             work_mode, mode_value = self._preset_commands[preset_key]
