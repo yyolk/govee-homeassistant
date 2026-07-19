@@ -284,6 +284,7 @@
     },
     "fan": {
       "govee_fan": {
+        "name": "{device_name}",
         "state_attributes": {
           "preset_mode": {
             "state": {
