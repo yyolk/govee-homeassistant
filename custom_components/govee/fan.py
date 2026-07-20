@@ -211,8 +211,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         # Discover manual mode and its display name from workMode options.
         manual_name = ""
         for opt in work_mode_options:
-            raw_opt_name = str(opt.get("name", ""))
-            opt_name = self._normalize_mode_name(raw_opt_name)
+            opt_name = self._normalize_mode_name(opt.get("name"))
             opt_value = opt.get("value")
             if opt_value is not None and opt_name in MANUAL_MODE_NAMES:
                 self._manual_work_mode = int(opt_value)
