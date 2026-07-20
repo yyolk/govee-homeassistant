@@ -220,9 +220,9 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
                 manual_name = opt_name
                 break
 
-        # The manual preset is always surfaced as "Normal" regardless of the
+        # The manual preset is always surfaced as "normal" regardless of the
         # device's workMode option name (gearMode/FanSpeed/manual/...), so
-        # automations and scenes referencing "Normal" stay stable across SKUs.
+        # automations and scenes referencing "normal" stay stable across SKUs.
         self._speed_work_modes = {self._manual_work_mode}
         self._speedless_work_modes = set()
 
