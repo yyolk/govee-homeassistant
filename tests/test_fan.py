@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -1188,3 +1189,21 @@ class TestFanModeNameWhitespaceHandling:
         cmd = entity.coordinator.async_control_device.call_args[0][1]
         assert isinstance(cmd, WorkModeCommand)
         assert cmd.work_mode == entity._manual_work_mode
+
+    @pytest.mark.asyncio
+    async def test_set_unknown_preset_mode_warns_and_falls_back_to_manual(self, caplog):
+        device = _h7107_whitespace_device()
+        state = MagicMock(work_mode=2, mode_value=0)
+        coordinator = MagicMock()
+        coordinator.devices = {device.device_id: device}
+        coordinator.get_state = MagicMock(return_value=state)
+        coordinator.async_control_device = AsyncMock(return_value=True)
+        entity = GoveeFanEntity(coordinator, device)
+
+        with caplog.at_level(logging.WARNING):
+            await entity.async_set_preset_mode("UnknownPreset")
+
+        cmd = entity.coordinator.async_control_device.call_args[0][1]
+        assert isinstance(cmd, WorkModeCommand)
+        assert cmd.work_mode == entity._manual_work_mode
+        assert "Unknown preset mode" in caplog.text

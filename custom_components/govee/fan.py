@@ -579,6 +579,13 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
             else:
                 mode_value = self._last_mode_values.get(work_mode, mode_value)
         else:
+            if preset_key != self._manual_preset_name:
+                _LOGGER.warning(
+                    "Unknown preset mode %r; falling back to %r",
+                    preset_mode,
+                    self._manual_preset_name,
+                )
+                preset_key = self._manual_preset_name
             # Manual mode fallback - use current speed or typical available speed
             work_mode = self._manual_work_mode
             mode_value = self._last_manual_mode_value
