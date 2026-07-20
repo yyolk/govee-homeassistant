@@ -7,12 +7,6 @@
           "preset_mode": {
             "default": "mdi:fan",
             "state": {
-              "Normal": "mdi:fan",
-              "Nature": "mdi:leaf",
-              "Sleep": "mdi:sleep",
-              "Auto": "mdi:fan-auto",
-              "Custom": "mdi:format-list-bulleted-type",
-              "Turbo": "mdi:car-turbocharger",
               "nature": "mdi:leaf",
               "sleep": "mdi:sleep",
               "auto": "mdi:fan-auto",
