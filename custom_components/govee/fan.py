@@ -215,7 +215,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         for opt in work_mode_options:
             opt_name = self._normalize_mode_name(opt.get("name"))
             opt_value = opt.get("value")
-            if opt_value is not None and opt_name in MANUAL_MODE_NAMES:
+            if opt_value is not None and opt_name is not None and opt_name in MANUAL_MODE_NAMES:
                 self._manual_work_mode = int(opt_value)
                 manual_name = opt_name
                 break
