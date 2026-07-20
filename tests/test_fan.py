@@ -1162,3 +1162,29 @@ class TestFanModeNameWhitespaceHandling:
         assert entity._fan_speeds == [1, 2, 3, 5]
         assert entity._fan_speeds.count(3) == 1
         assert entity.speed_count == 4
+
+    def test_normalize_preset_mode_handles_case_whitespace_alias_and_empty(self):
+        assert GoveeFanEntity._normalize_mode_name("FanSpeed") == "fanspeed"
+        assert GoveeFanEntity._normalize_preset_mode(" Auto ") == PRESET_MODE_AUTO
+        assert GoveeFanEntity._normalize_preset_mode("FanSpeed") == PRESET_MODE_NORMAL
+        assert GoveeFanEntity._normalize_preset_mode("  Turbo  ") == "turbo"
+        assert GoveeFanEntity._normalize_preset_mode("  Breezy  ") == "breezy"
+        assert GoveeFanEntity._normalize_preset_mode("   ") is None
+        assert GoveeFanEntity._normalize_preset_mode(0) is None
+        assert GoveeFanEntity._normalize_preset_mode(False) is None
+
+    @pytest.mark.asyncio
+    async def test_set_empty_preset_mode_falls_back_to_manual(self):
+        device = _h7107_whitespace_device()
+        state = MagicMock(work_mode=2, mode_value=0)
+        coordinator = MagicMock()
+        coordinator.devices = {device.device_id: device}
+        coordinator.get_state = MagicMock(return_value=state)
+        coordinator.async_control_device = AsyncMock(return_value=True)
+        entity = GoveeFanEntity(coordinator, device)
+
+        await entity.async_set_preset_mode("   ")
+
+        cmd = entity.coordinator.async_control_device.call_args[0][1]
+        assert isinstance(cmd, WorkModeCommand)
+        assert cmd.work_mode == entity._manual_work_mode
