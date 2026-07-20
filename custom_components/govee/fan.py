@@ -65,7 +65,7 @@ WORK_MODE_AUTO = DEFAULT_WORK_MODE_AUTO
 MANUAL_MODE_NAMES = {"manual", "gearmode", "fanspeed"}
 # Canonical preset keys are lowercase so preset_mode always matches
 # Home Assistant translation keys and icon state keys (strings.json/icons.json).
-PRESET_MODE_MAPPING = {
+PRESET_MODE_ALIASES = {
     "normal": PRESET_MODE_NORMAL,
     "auto": PRESET_MODE_AUTO,
     "manual": PRESET_MODE_NORMAL,
@@ -384,7 +384,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         normalized = GoveeFanEntity._normalize_mode_name(name)
         if normalized is None:
             return None
-        return PRESET_MODE_MAPPING.get(normalized, normalized)
+        return PRESET_MODE_ALIASES.get(normalized, normalized)
 
     def _manual_mode_value_from_state(self) -> int | None:
         """Return modeValue when state is in manual mode and value is a valid speed."""
