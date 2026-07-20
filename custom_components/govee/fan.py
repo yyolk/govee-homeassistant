@@ -525,7 +525,7 @@ class GoveeFanEntity(GoveeEntity, FanEntity):
         """Set the preset mode."""
         normalized_preset_mode = self._normalize_preset_mode(preset_mode)
         if normalized_preset_mode is None:
-            _LOGGER.debug(
+            _LOGGER.warning(
                 "Invalid or empty preset mode received %r; falling back to %r",
                 preset_mode,
                 PRESET_MODE_NORMAL,
