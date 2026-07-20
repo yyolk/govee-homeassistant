@@ -50,7 +50,9 @@ _LOGGER = logging.getLogger(__name__)
 
 PARALLEL_UPDATES = 0
 
-# Stable preset identifiers (translated to user-facing labels via strings.json).
+# Stable internal preset identifiers (lowercase canonical keys).
+# These are used for icon lookup (icons.json) and internal state.
+# User-facing labels remain Title Case via Home Assistant translations.
 PRESET_MODE_NORMAL = "normal"
 PRESET_MODE_AUTO = "auto"
 
